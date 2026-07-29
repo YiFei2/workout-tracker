@@ -15,7 +15,7 @@ A reusable plan the user builds in advance.
 
 ### TemplateExercise
 A slot in a template.
-- `id`, `exerciseName`, `defaultSets` (count), `defaultReps`, `defaultWeight`
+- `id`, `exerciseName`, `defaultSets` (count), `defaultReps`, `defaultWeight`, `defaultRestSeconds` (nullable — field reserved now, rest timer feature itself still out of scope, see below)
 - Order is user-defined and should be persisted
 
 ### WorkoutSession
@@ -26,7 +26,7 @@ A logged instance of actually doing a workout.
 
 ### LoggedExercise
 An exercise within a session.
-- `id`, `exerciseName`
+- `id`, `exerciseName`, `restSeconds` (nullable — field reserved now, see rest timer note above)
 - Contains an ordered list of `Set`
 
 ### Set
@@ -113,6 +113,13 @@ A single set within an exercise.
 - Export to CSV
 - Drag-to-reorder exercises
 - Weight unit toggle (kg hardcoded in v1)
+
+---
+
+## Completed & Tested
+
+- **Project scaffold boots**: `npm start` (Expo/Metro) starts cleanly with no errors — verified 2026-07-29.
+- **DB layer scaffolding**: SQLite schema (`db/schema.ts`) for templates, template_exercises, sessions, logged_exercises, sets; migration runner (`db/client.ts`); full CRUD for `WorkoutTemplate` / `TemplateExercise` (`db/templates.ts`) — create, rename, delete, list-with-exercise-count, get-with-exercises, add/update/remove exercise, reorder. Typechecks and bundles cleanly (`npx expo export`) — verified 2026-07-29.
 
 ---
 

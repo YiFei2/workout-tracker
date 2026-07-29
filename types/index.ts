@@ -14,6 +14,7 @@ export interface TemplateExercise {
   defaultSets: number;
   defaultReps: number;
   defaultWeight: number;
+  defaultRestSeconds: number | null;
 }
 
 export interface WorkoutSession {
@@ -30,6 +31,7 @@ export interface LoggedExercise {
   sessionId: string;
   exerciseName: string;
   order: number;
+  restSeconds: number | null;
   sets: WorkoutSet[];
 }
 
