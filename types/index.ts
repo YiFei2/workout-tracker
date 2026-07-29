@@ -11,10 +11,16 @@ export interface TemplateExercise {
   templateId: string;
   exerciseName: string;
   order: number;
-  defaultSets: number;
-  defaultReps: number;
-  defaultWeight: number;
-  defaultRestSeconds: number | null;
+  restSeconds: number | null;
+  sets: TemplateSet[];
+}
+
+export interface TemplateSet {
+  id: string;
+  templateExerciseId: string;
+  order: number;
+  reps: number;
+  weight: number;
 }
 
 export interface WorkoutSession {

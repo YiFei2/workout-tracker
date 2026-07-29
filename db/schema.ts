@@ -1,7 +1,10 @@
-// Schema for the local SQLite database. Applied via CREATE TABLE IF NOT EXISTS,
-// so it's safe to run on every app start.
+// Schema for the local SQLite database, applied via versioned migrations
+// (see client.ts). Bump SCHEMA_VERSION and add a migration when this shape
+// changes.
 
-export const SCHEMA_STATEMENTS = [
+export const SCHEMA_VERSION = 2;
+
+export const CREATE_TABLE_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS templates (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
@@ -14,10 +17,15 @@ export const SCHEMA_STATEMENTS = [
     template_id TEXT NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
     exercise_name TEXT NOT NULL,
     order_index INTEGER NOT NULL,
-    default_sets INTEGER NOT NULL,
-    default_reps INTEGER NOT NULL,
-    default_weight REAL NOT NULL,
-    default_rest_seconds INTEGER
+    rest_seconds INTEGER
+  );`,
+
+  `CREATE TABLE IF NOT EXISTS template_sets (
+    id TEXT PRIMARY KEY NOT NULL,
+    template_exercise_id TEXT NOT NULL REFERENCES template_exercises(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL,
+    reps INTEGER NOT NULL,
+    weight REAL NOT NULL
   );`,
 
   `CREATE TABLE IF NOT EXISTS sessions (
@@ -46,7 +54,17 @@ export const SCHEMA_STATEMENTS = [
   );`,
 
   `CREATE INDEX IF NOT EXISTS idx_template_exercises_template_id ON template_exercises(template_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_template_sets_template_exercise_id ON template_sets(template_exercise_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_template_id ON sessions(template_id);`,
   `CREATE INDEX IF NOT EXISTS idx_logged_exercises_session_id ON logged_exercises(session_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sets_exercise_id ON sets(exercise_id);`,
+];
+
+// v2: template_exercises moved from a single (defaultSets, defaultReps,
+// defaultWeight) triple to per-set defaults in template_sets, and was
+// renamed defaultRestSeconds -> restSeconds. No shipped users yet, so we
+// just drop and recreate rather than write a data-preserving ALTER.
+export const V2_MIGRATION_STATEMENTS = [
+  `DROP TABLE IF EXISTS template_sets;`,
+  `DROP TABLE IF EXISTS template_exercises;`,
 ];

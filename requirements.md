@@ -15,8 +15,13 @@ A reusable plan the user builds in advance.
 
 ### TemplateExercise
 A slot in a template.
-- `id`, `exerciseName`, `defaultSets` (count), `defaultReps`, `defaultWeight`, `defaultRestSeconds` (nullable — field reserved now, rest timer feature itself still out of scope, see below)
+- `id`, `exerciseName`, `restSeconds` (nullable — rest timer duration between this exercise's sets; feature itself still out of scope, field reserved now, see below)
+- Contains an ordered list of `TemplateSet`
 - Order is user-defined and should be persisted
+
+### TemplateSet
+A single default set within a template exercise, individually configurable (e.g. for progressive overload across sets).
+- `id`, `reps`, `weight`
 
 ### WorkoutSession
 A logged instance of actually doing a workout.
@@ -42,16 +47,18 @@ A single set within an exercise.
 **Create**
 - Create a new template with a name
 - Add exercises by name (free text to start; exercise library is a future feature)
-- Set default sets count, reps, and weight per exercise
+- Set an optional rest duration (seconds) per exercise
+- Add individual sets to an exercise, each with its own reps and weight (new exercises start with one default set)
 
 **Read**
 - List all templates (name, exercise count)
-- View a template detail (all exercises with defaults)
+- View a template detail (all exercises, each with its rest duration and its list of sets)
 
 **Update**
 - Rename a template
 - Add / remove exercises
-- Edit default sets, reps, weight per exercise
+- Edit an exercise's name and rest duration
+- Add / edit / remove individual sets within an exercise (independent reps/weight per set)
 - Exercise order is fixed to insertion order in v1 (see Out of Scope / Future Features — drag-to-reorder)
 
 **Delete**
@@ -122,6 +129,7 @@ A single set within an exercise.
 - **Downgraded to Expo SDK 54**: originally scaffolded on SDK 57, but the installed Expo Go app didn't support it. Downgraded all `expo`/`expo-*`/`react`/`react-native` packages to their SDK 54-compatible versions via `npx expo install --fix`; also removed a stale `expo-status-bar` entry from `app.json`'s `plugins` (that package has no config plugin on SDK 54 and its presence broke `expo export`). Verified 2026-07-30.
 - **DB layer scaffolding**: SQLite schema (`db/schema.ts`) for templates, template_exercises, sessions, logged_exercises, sets; migration runner (`db/client.ts`); full CRUD for `WorkoutTemplate` / `TemplateExercise` (`db/templates.ts`) — create, rename, delete, list-with-exercise-count, get-with-exercises, add/update/remove exercise, reorder. Typechecks and bundles cleanly (`npx expo export`) — verified 2026-07-29.
 - **Template Management screens**: list screen (`app/(tabs)/index.tsx`) with create-via-modal; detail screen (`app/template/[id].tsx`) with rename, delete, add/edit/remove exercise, all backed by `hooks/useTemplates.ts` / `hooks/useTemplate.ts`. Drag-to-reorder intentionally omitted (see Out of Scope). **Manually tested on-device via Expo Go (SDK 54) — all cases passed 2026-07-30.**
+- **Per-set template data model**: `TemplateExercise` no longer stores one uniform (sets count, reps, weight) — each exercise now has an ordered list of `TemplateSet`, individually editable (reps/weight per set), enabling progressive-overload-style templates. Schema migration (`db/schema.ts` v2) drops and recreates `template_exercises`/adds `template_sets` (no shipped users yet, so no data-preserving migration was needed). Typechecks and bundles cleanly — verified 2026-07-30. **Not yet manually re-tested on-device** since this change.
 
 ---
 

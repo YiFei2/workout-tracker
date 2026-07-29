@@ -1,26 +1,23 @@
 import { useEffect, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-export interface ExerciseFormValues {
-  exerciseName: string;
-  restSeconds: number | null;
+export interface SetFormValues {
+  reps: number;
+  weight: number;
 }
 
 interface Props {
   visible: boolean;
   title: string;
   submitLabel?: string;
-  initialValues?: ExerciseFormValues;
+  initialValues?: SetFormValues;
   onCancel: () => void;
-  onSubmit: (values: ExerciseFormValues) => void;
+  onSubmit: (values: SetFormValues) => void;
 }
 
-const EMPTY_VALUES: ExerciseFormValues = {
-  exerciseName: "",
-  restSeconds: 90,
-};
+const EMPTY_VALUES: SetFormValues = { reps: 10, weight: 0 };
 
-export function ExerciseFormModal({
+export function SetFormModal({
   visible,
   title,
   submitLabel = "Save",
@@ -28,37 +25,33 @@ export function ExerciseFormModal({
   onCancel,
   onSubmit,
 }: Props) {
-  const [exerciseName, setExerciseName] = useState("");
-  const [restSeconds, setRestSeconds] = useState("");
+  const [reps, setReps] = useState("");
+  const [weight, setWeight] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
       const values = initialValues ?? EMPTY_VALUES;
-      setExerciseName(values.exerciseName);
-      setRestSeconds(values.restSeconds === null ? "" : String(values.restSeconds));
+      setReps(String(values.reps));
+      setWeight(String(values.weight));
       setError(null);
     }
   }, [visible, initialValues]);
 
   const handleSubmit = () => {
-    const trimmedName = exerciseName.trim();
-    if (!trimmedName) {
-      setError("Exercise name is required");
+    const repsNum = Number(reps);
+    const weightNum = Number(weight);
+
+    if (!Number.isFinite(repsNum) || repsNum <= 0) {
+      setError("Reps must be a positive number");
+      return;
+    }
+    if (!Number.isFinite(weightNum) || weightNum < 0) {
+      setError("Weight must be zero or a positive number");
       return;
     }
 
-    let restSecondsNum: number | null = null;
-    if (restSeconds.trim() !== "") {
-      const parsed = Number(restSeconds);
-      if (!Number.isFinite(parsed) || parsed < 0) {
-        setError("Rest time must be zero or a positive number of seconds");
-        return;
-      }
-      restSecondsNum = parsed;
-    }
-
-    onSubmit({ exerciseName: trimmedName, restSeconds: restSecondsNum });
+    onSubmit({ reps: repsNum, weight: weightNum });
   };
 
   return (
@@ -67,23 +60,27 @@ export function ExerciseFormModal({
         <View style={styles.card}>
           <Text style={styles.title}>{title}</Text>
 
-          <Text style={styles.label}>Exercise name</Text>
-          <TextInput
-            style={styles.input}
-            value={exerciseName}
-            onChangeText={setExerciseName}
-            placeholder="e.g. Bench Press"
-            autoFocus
-          />
-
-          <Text style={styles.label}>Rest between sets (seconds, optional)</Text>
-          <TextInput
-            style={styles.input}
-            value={restSeconds}
-            onChangeText={setRestSeconds}
-            keyboardType="numeric"
-            placeholder="e.g. 90"
-          />
+          <View style={styles.row}>
+            <View style={styles.field}>
+              <Text style={styles.label}>Reps</Text>
+              <TextInput
+                style={styles.input}
+                value={reps}
+                onChangeText={setReps}
+                keyboardType="numeric"
+                autoFocus
+              />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Weight (kg)</Text>
+              <TextInput
+                style={styles.input}
+                value={weight}
+                onChangeText={setWeight}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -129,6 +126,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
+  },
+  row: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  field: {
+    flex: 1,
+    gap: 4,
   },
   error: {
     color: "#dc2626",

@@ -1,6 +1,6 @@
 import * as SQLite from "expo-sqlite";
 
-import { SCHEMA_STATEMENTS } from "./schema";
+import { CREATE_TABLE_STATEMENTS, SCHEMA_VERSION, V2_MIGRATION_STATEMENTS } from "./schema";
 
 const DB_NAME = "workout-tracker.db";
 
@@ -8,9 +8,21 @@ let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   await db.execAsync("PRAGMA foreign_keys = ON;");
-  for (const statement of SCHEMA_STATEMENTS) {
+
+  const row = await db.getFirstAsync<{ user_version: number }>("PRAGMA user_version;");
+  const currentVersion = row?.user_version ?? 0;
+
+  if (currentVersion < 2) {
+    for (const statement of V2_MIGRATION_STATEMENTS) {
+      await db.execAsync(statement);
+    }
+  }
+
+  for (const statement of CREATE_TABLE_STATEMENTS) {
     await db.execAsync(statement);
   }
+
+  await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
 }
 
 export function getDb(): Promise<SQLite.SQLiteDatabase> {

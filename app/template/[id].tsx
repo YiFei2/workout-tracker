@@ -1,21 +1,34 @@
 import { useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { ExerciseFormModal, type ExerciseFormValues } from "../../components/ExerciseFormModal";
 import { NamePromptModal } from "../../components/NamePromptModal";
+import { SetFormModal, type SetFormValues } from "../../components/SetFormModal";
 import { deleteTemplate } from "../../db";
 import { useTemplate } from "../../hooks/useTemplate";
-import type { TemplateExercise } from "../../types";
+import type { TemplateExercise, TemplateSet } from "../../types";
 
 export default function TemplateDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { template, loading, rename, addExercise, updateExercise, removeExercise } =
-    useTemplate(id);
+  const {
+    template,
+    loading,
+    rename,
+    addExercise,
+    updateExercise,
+    removeExercise,
+    addSet,
+    updateSet,
+    removeSet,
+  } = useTemplate(id);
+
   const [renaming, setRenaming] = useState(false);
   const [addingExercise, setAddingExercise] = useState(false);
   const [editingExercise, setEditingExercise] = useState<TemplateExercise | null>(null);
+  const [addingSetFor, setAddingSetFor] = useState<TemplateExercise | null>(null);
+  const [editingSet, setEditingSet] = useState<TemplateSet | null>(null);
 
   if (loading && !template) {
     return (
@@ -67,8 +80,24 @@ export default function TemplateDetailScreen() {
     await updateExercise(editingExercise.id, values);
   };
 
+  const handleAddSet = async (values: SetFormValues) => {
+    if (!addingSetFor) {
+      return;
+    }
+    setAddingSetFor(null);
+    await addSet(addingSetFor.id, values);
+  };
+
+  const handleEditSet = async (values: SetFormValues) => {
+    if (!editingSet) {
+      return;
+    }
+    setEditingSet(null);
+    await updateSet(editingSet.id, values);
+  };
+
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <Stack.Screen options={{ title: template.name }} />
 
       <View style={styles.header}>
@@ -81,31 +110,52 @@ export default function TemplateDetailScreen() {
         </Pressable>
       </View>
 
-      <FlatList
-        data={template.exercises}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No exercises yet — add one below.</Text>
-        }
-        renderItem={({ item }) => (
-          <Pressable style={styles.exerciseRow} onPress={() => setEditingExercise(item)}>
-            <View style={styles.exerciseInfo}>
-              <Text style={styles.exerciseName}>{item.exerciseName}</Text>
-              <Text style={styles.exerciseDefaults}>
-                {item.defaultSets} sets × {item.defaultReps} reps @ {item.defaultWeight}kg
-              </Text>
+      {template.exercises.length === 0 ? (
+        <Text style={styles.emptyText}>No exercises yet — add one below.</Text>
+      ) : (
+        template.exercises.map((exercise) => (
+          <View key={exercise.id} style={styles.exerciseCard}>
+            <View style={styles.exerciseHeader}>
+              <Pressable style={styles.exerciseTitleArea} onPress={() => setEditingExercise(exercise)}>
+                <Text style={styles.exerciseName}>{exercise.exerciseName}</Text>
+                <Text style={styles.exerciseRest}>
+                  {exercise.restSeconds !== null ? `Rest: ${exercise.restSeconds}s` : "No rest set"}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={styles.removeButton}
+                onPress={() => handleRemoveExercise(exercise)}
+                hitSlop={8}
+              >
+                <Text style={styles.removeButtonText}>✕</Text>
+              </Pressable>
             </View>
-            <Pressable
-              style={styles.removeButton}
-              onPress={() => handleRemoveExercise(item)}
-              hitSlop={8}
-            >
-              <Text style={styles.removeButtonText}>✕</Text>
+
+            {exercise.sets.map((set, index) => (
+              <Pressable
+                key={set.id}
+                style={styles.setRow}
+                onPress={() => setEditingSet(set)}
+              >
+                <Text style={styles.setText}>
+                  Set {index + 1}: {set.reps} reps @ {set.weight}kg
+                </Text>
+                <Pressable
+                  style={styles.removeButton}
+                  onPress={() => removeSet(set.id)}
+                  hitSlop={8}
+                >
+                  <Text style={styles.removeButtonText}>✕</Text>
+                </Pressable>
+              </Pressable>
+            ))}
+
+            <Pressable style={styles.addSetButton} onPress={() => setAddingSetFor(exercise)}>
+              <Text style={styles.addSetButtonText}>+ Add Set</Text>
             </Pressable>
-          </Pressable>
-        )}
-      />
+          </View>
+        ))
+      )}
 
       <Pressable style={styles.addButton} onPress={() => setAddingExercise(true)}>
         <Text style={styles.addButtonText}>+ Add Exercise</Text>
@@ -137,28 +187,40 @@ export default function TemplateDetailScreen() {
         submitLabel="Save"
         initialValues={
           editingExercise
-            ? {
-                exerciseName: editingExercise.exerciseName,
-                defaultSets: editingExercise.defaultSets,
-                defaultReps: editingExercise.defaultReps,
-                defaultWeight: editingExercise.defaultWeight,
-              }
+            ? { exerciseName: editingExercise.exerciseName, restSeconds: editingExercise.restSeconds }
             : undefined
         }
         onCancel={() => setEditingExercise(null)}
         onSubmit={handleEditExercise}
       />
-    </View>
+
+      <SetFormModal
+        visible={addingSetFor !== null}
+        title="Add Set"
+        submitLabel="Add"
+        onCancel={() => setAddingSetFor(null)}
+        onSubmit={handleAddSet}
+      />
+
+      <SetFormModal
+        visible={editingSet !== null}
+        title="Edit Set"
+        submitLabel="Save"
+        initialValues={editingSet ? { reps: editingSet.reps, weight: editingSet.weight } : undefined}
+        onCancel={() => setEditingSet(null)}
+        onSubmit={handleEditSet}
+      />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  scrollContent: { padding: 16, gap: 12, paddingBottom: 40 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    padding: 16,
   },
   templateName: { fontSize: 20, fontWeight: "700" },
   renameHint: { fontSize: 12, color: "#999", marginTop: 2 },
@@ -169,26 +231,51 @@ const styles = StyleSheet.create({
     backgroundColor: "#fee2e2",
   },
   deleteButtonText: { color: "#dc2626", fontWeight: "600", fontSize: 12 },
-  list: { flexGrow: 1, paddingHorizontal: 16, gap: 10 },
-  emptyText: { textAlign: "center", color: "#666", marginTop: 20 },
-  exerciseRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#f2f2f2",
+  startButton: {
+    backgroundColor: "#16a34a",
     borderRadius: 10,
-    padding: 14,
+    paddingVertical: 14,
+    alignItems: "center",
   },
-  exerciseInfo: { gap: 4 },
+  startButtonDisabled: { opacity: 0.6 },
+  startButtonText: { color: "white", fontWeight: "700", fontSize: 16 },
+  emptyText: { textAlign: "center", color: "#666", marginTop: 20 },
+  exerciseCard: {
+    backgroundColor: "#f2f2f2",
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+  },
+  exerciseHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  exerciseTitleArea: { flex: 1 },
   exerciseName: { fontSize: 16, fontWeight: "600" },
-  exerciseDefaults: { fontSize: 13, color: "#666" },
+  exerciseRest: { fontSize: 12, color: "#666", marginTop: 2 },
+  setRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "white",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  setText: { fontSize: 14 },
   removeButton: {
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   removeButtonText: { color: "#999", fontSize: 16 },
+  addSetButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  addSetButtonText: { color: "#2563eb", fontWeight: "600", fontSize: 13 },
   addButton: {
-    margin: 16,
     backgroundColor: "#2563eb",
     borderRadius: 10,
     paddingVertical: 14,
