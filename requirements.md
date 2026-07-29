@@ -51,8 +51,8 @@ A single set within an exercise.
 **Update**
 - Rename a template
 - Add / remove exercises
-- Change exercise order (drag-to-reorder)
 - Edit default sets, reps, weight per exercise
+- Exercise order is fixed to insertion order in v1 (see Out of Scope / Future Features — drag-to-reorder)
 
 **Delete**
 - Delete a template (does not delete past sessions that used it)
@@ -120,6 +120,14 @@ A single set within an exercise.
 
 - **Project scaffold boots**: `npm start` (Expo/Metro) starts cleanly with no errors — verified 2026-07-29.
 - **DB layer scaffolding**: SQLite schema (`db/schema.ts`) for templates, template_exercises, sessions, logged_exercises, sets; migration runner (`db/client.ts`); full CRUD for `WorkoutTemplate` / `TemplateExercise` (`db/templates.ts`) — create, rename, delete, list-with-exercise-count, get-with-exercises, add/update/remove exercise, reorder. Typechecks and bundles cleanly (`npx expo export`) — verified 2026-07-29.
+- **Template Management screens**: list screen (`app/(tabs)/index.tsx`) with create-via-modal; detail screen (`app/template/[id].tsx`) with rename, delete, add/edit/remove exercise, all backed by `hooks/useTemplates.ts` / `hooks/useTemplate.ts`. Drag-to-reorder intentionally omitted (see Out of Scope). Typechecks and bundles cleanly — verified 2026-07-29. **Not yet exercised at runtime** — no iOS/Android simulator available in this environment (`xcrun simctl` not installed). Needs a manual pass before calling this "tested":
+  - [ ] Create a template, confirm it navigates to the detail screen
+  - [ ] Add an exercise with sets/reps/weight, confirm it appears in the list
+  - [ ] Edit an exercise's values, confirm they persist
+  - [ ] Remove an exercise, confirm it disappears
+  - [ ] Rename the template, confirm the header/list update
+  - [ ] Reload the app, confirm all data persisted (SQLite is working)
+  - [ ] Delete the template, confirm it's gone from the list
 
 ---
 
