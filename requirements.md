@@ -119,15 +119,9 @@ A single set within an exercise.
 ## Completed & Tested
 
 - **Project scaffold boots**: `npm start` (Expo/Metro) starts cleanly with no errors — verified 2026-07-29.
+- **Downgraded to Expo SDK 54**: originally scaffolded on SDK 57, but the installed Expo Go app didn't support it. Downgraded all `expo`/`expo-*`/`react`/`react-native` packages to their SDK 54-compatible versions via `npx expo install --fix`; also removed a stale `expo-status-bar` entry from `app.json`'s `plugins` (that package has no config plugin on SDK 54 and its presence broke `expo export`). Verified 2026-07-30.
 - **DB layer scaffolding**: SQLite schema (`db/schema.ts`) for templates, template_exercises, sessions, logged_exercises, sets; migration runner (`db/client.ts`); full CRUD for `WorkoutTemplate` / `TemplateExercise` (`db/templates.ts`) — create, rename, delete, list-with-exercise-count, get-with-exercises, add/update/remove exercise, reorder. Typechecks and bundles cleanly (`npx expo export`) — verified 2026-07-29.
-- **Template Management screens**: list screen (`app/(tabs)/index.tsx`) with create-via-modal; detail screen (`app/template/[id].tsx`) with rename, delete, add/edit/remove exercise, all backed by `hooks/useTemplates.ts` / `hooks/useTemplate.ts`. Drag-to-reorder intentionally omitted (see Out of Scope). Typechecks and bundles cleanly — verified 2026-07-29. **Not yet exercised at runtime** — no iOS/Android simulator available in this environment (`xcrun simctl` not installed). Needs a manual pass before calling this "tested":
-  - [ ] Create a template, confirm it navigates to the detail screen
-  - [ ] Add an exercise with sets/reps/weight, confirm it appears in the list
-  - [ ] Edit an exercise's values, confirm they persist
-  - [ ] Remove an exercise, confirm it disappears
-  - [ ] Rename the template, confirm the header/list update
-  - [ ] Reload the app, confirm all data persisted (SQLite is working)
-  - [ ] Delete the template, confirm it's gone from the list
+- **Template Management screens**: list screen (`app/(tabs)/index.tsx`) with create-via-modal; detail screen (`app/template/[id].tsx`) with rename, delete, add/edit/remove exercise, all backed by `hooks/useTemplates.ts` / `hooks/useTemplate.ts`. Drag-to-reorder intentionally omitted (see Out of Scope). **Manually tested on-device via Expo Go (SDK 54) — all cases passed 2026-07-30.**
 
 ---
 
