@@ -46,6 +46,11 @@ See `requirements.md` for full entity definitions. Key types:
 - **Free-text exercise names** in v1 (no enforced exercise library yet)
 - **Weight unit**: kg hardcoded in v1
 
+## Git Workflow
+
+- Commit after each key feature or section is implemented (e.g. DB layer, Template Management screens), not just at the end of a session
+- Keep commits scoped to that feature/section rather than batching unrelated work together
+
 ## Product Direction
 
 Any new feature ideas, scope decisions, or product direction notes go directly into `requirements.md` — either expanding an existing section or adding to the **Future Features** section. Do not let ideas get lost in conversation.
