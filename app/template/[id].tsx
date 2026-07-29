@@ -5,7 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { ExerciseFormModal, type ExerciseFormValues } from "../../components/ExerciseFormModal";
 import { NamePromptModal } from "../../components/NamePromptModal";
 import { SetFormModal, type SetFormValues } from "../../components/SetFormModal";
-import { deleteTemplate } from "../../db";
+import { deleteTemplate, startSessionFromTemplate } from "../../db";
 import { useTemplate } from "../../hooks/useTemplate";
 import type { TemplateExercise, TemplateSet } from "../../types";
 
@@ -29,6 +29,7 @@ export default function TemplateDetailScreen() {
   const [editingExercise, setEditingExercise] = useState<TemplateExercise | null>(null);
   const [addingSetFor, setAddingSetFor] = useState<TemplateExercise | null>(null);
   const [editingSet, setEditingSet] = useState<TemplateSet | null>(null);
+  const [starting, setStarting] = useState(false);
 
   if (loading && !template) {
     return (
@@ -96,6 +97,16 @@ export default function TemplateDetailScreen() {
     await updateSet(editingSet.id, values);
   };
 
+  const handleStartWorkout = async () => {
+    setStarting(true);
+    try {
+      const session = await startSessionFromTemplate(template.id);
+      router.push(`/session/${session.id}`);
+    } finally {
+      setStarting(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <Stack.Screen options={{ title: template.name }} />
@@ -109,6 +120,14 @@ export default function TemplateDetailScreen() {
           <Text style={styles.deleteButtonText}>Delete Template</Text>
         </Pressable>
       </View>
+
+      <Pressable
+        style={[styles.startButton, starting && styles.startButtonDisabled]}
+        onPress={handleStartWorkout}
+        disabled={starting}
+      >
+        <Text style={styles.startButtonText}>{starting ? "Starting…" : "Start Workout"}</Text>
+      </Pressable>
 
       {template.exercises.length === 0 ? (
         <Text style={styles.emptyText}>No exercises yet — add one below.</Text>

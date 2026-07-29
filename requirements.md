@@ -15,7 +15,7 @@ A reusable plan the user builds in advance.
 
 ### TemplateExercise
 A slot in a template.
-- `id`, `exerciseName`, `restSeconds` (nullable — rest timer duration between this exercise's sets; feature itself still out of scope, field reserved now, see below)
+- `id`, `exerciseName`, `restSeconds` (nullable — rest timer duration between this exercise's sets)
 - Contains an ordered list of `TemplateSet`
 - Order is user-defined and should be persisted
 
@@ -31,7 +31,7 @@ A logged instance of actually doing a workout.
 
 ### LoggedExercise
 An exercise within a session.
-- `id`, `exerciseName`, `restSeconds` (nullable — field reserved now, see rest timer note above)
+- `id`, `exerciseName`, `restSeconds` (nullable — defaults from the template exercise, adjustable during the session)
 - Contains an ordered list of `Set`
 
 ### Set
@@ -78,9 +78,14 @@ A single set within an exercise.
 - Edit weight and reps inline per set
 - Add a set to an exercise (copies last set's values as default)
 - Remove a set from an exercise
-- Add an exercise to the session (by name, appended to bottom)
+- Add an exercise to the session (by name, appended to bottom, with optional rest duration)
 - Remove an exercise from the session
-- Reorder exercises
+- Exercise order is fixed to insertion order in v1, same as templates (see Out of Scope / Future Features — drag-to-reorder)
+
+**Rest timer**
+- Marking a set completed starts a countdown using that exercise's `restSeconds` (skipped if not set)
+- Adjustable in-session via +/- controls; can be skipped/dismissed early
+- Duration is seeded from the template's per-exercise default but is just a per-session value — editing it during a session does not change the template
 
 **Finishing**
 - Complete workout: saves session with `completedAt` timestamp
@@ -115,7 +120,6 @@ A single set within an exercise.
 - Social / sharing features
 - Exercise library with muscle group metadata (exercise names are free text in v1)
 - Progress charts / analytics
-- Rest timers
 - Barcode scanning for equipment
 - Export to CSV
 - Drag-to-reorder exercises
@@ -130,6 +134,20 @@ A single set within an exercise.
 - **DB layer scaffolding**: SQLite schema (`db/schema.ts`) for templates, template_exercises, sessions, logged_exercises, sets; migration runner (`db/client.ts`); full CRUD for `WorkoutTemplate` / `TemplateExercise` (`db/templates.ts`) — create, rename, delete, list-with-exercise-count, get-with-exercises, add/update/remove exercise, reorder. Typechecks and bundles cleanly (`npx expo export`) — verified 2026-07-29.
 - **Template Management screens**: list screen (`app/(tabs)/index.tsx`) with create-via-modal; detail screen (`app/template/[id].tsx`) with rename, delete, add/edit/remove exercise, all backed by `hooks/useTemplates.ts` / `hooks/useTemplate.ts`. Drag-to-reorder intentionally omitted (see Out of Scope). **Manually tested on-device via Expo Go (SDK 54) — all cases passed 2026-07-30.**
 - **Per-set template data model**: `TemplateExercise` no longer stores one uniform (sets count, reps, weight) — each exercise now has an ordered list of `TemplateSet`, individually editable (reps/weight per set), enabling progressive-overload-style templates. Schema migration (`db/schema.ts` v2) drops and recreates `template_exercises`/adds `template_sets` (no shipped users yet, so no data-preserving migration was needed). Typechecks and bundles cleanly — verified 2026-07-30. **Not yet manually re-tested on-device** since this change.
+- **Active Workout Session**: start from a template (copies exercises/sets as a snapshot) or start blank, from the History tab; `app/session/[id].tsx` supports inline edit of weight/reps per set, mark-complete checkbox, add/remove sets and exercises, complete (saves to history) or discard. Backed by `db/sessions.ts` and `hooks/useSession.ts`. Exercise reordering intentionally omitted, same as templates. Typechecks and bundles cleanly — verified 2026-07-30. **Not yet manually tested on-device.**
+- **Rest timer**: adjustable countdown (`components/RestTimerOverlay.tsx`, `hooks/useRestTimer.ts`) triggered when a set is marked complete, using that exercise's `restSeconds`; +/-15s adjust, skip/dismiss, auto-dismisses at 0. Typechecks and bundles cleanly — verified 2026-07-30. **Not yet manually tested on-device.**
+
+Manual pass needed for the three items above before calling them "tested" (same Expo Go setup as before — SDK 54, scan a fresh QR from `npm start`):
+  - [ ] Open an existing template, add a second/third set to an exercise with different reps/weight per set, confirm each persists independently
+  - [ ] Set a rest duration on a template exercise (e.g. 30s), start a workout from that template
+  - [ ] Mark a set complete, confirm the rest timer overlay appears and counts down
+  - [ ] Use +15s/-15s during the countdown, confirm it adjusts; tap Skip, confirm it dismisses immediately
+  - [ ] Add an extra set mid-session, confirm it copies the previous set's reps/weight as a starting point
+  - [ ] Add an ad hoc exercise mid-session, remove a set, remove an exercise
+  - [ ] Complete the workout, confirm it appears in History with the right exercise/set-completed counts
+  - [ ] Tap into that history entry, confirm it renders read-only (no edit controls)
+  - [ ] Start a blank workout from History, confirm it starts empty and can still be built up and completed
+  - [ ] Delete a session from History, confirm it disappears
 
 ---
 
@@ -139,6 +157,5 @@ A single set within an exercise.
 - **Weight unit setting**: global kg/lb preference with per-set stored unit so history remains accurate after switching
 - **Drag-to-reorder**: reorder exercises within a template or active session
 - **Progress charts**: visualise weight/volume progression per exercise over time
-- **Rest timer**: countdown between sets with configurable duration
 - **Cloud sync**: user accounts, cross-device sync
 - **Export**: CSV or JSON export of workout history
