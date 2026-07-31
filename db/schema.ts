@@ -2,7 +2,7 @@
 // (see client.ts). Bump SCHEMA_VERSION and add a migration when this shape
 // changes.
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const CREATE_TABLE_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS templates (
@@ -53,6 +53,11 @@ export const CREATE_TABLE_STATEMENTS = [
     completed INTEGER NOT NULL DEFAULT 0
   );`,
 
+  `CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+  );`,
+
   `CREATE INDEX IF NOT EXISTS idx_template_exercises_template_id ON template_exercises(template_id);`,
   `CREATE INDEX IF NOT EXISTS idx_template_sets_template_exercise_id ON template_sets(template_exercise_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_template_id ON sessions(template_id);`,
@@ -68,3 +73,7 @@ export const V2_MIGRATION_STATEMENTS = [
   `DROP TABLE IF EXISTS template_sets;`,
   `DROP TABLE IF EXISTS template_exercises;`,
 ];
+
+// v3: added a simple key-value `settings` table (first use: theme mode
+// preference). Purely additive, so no migration statements needed — the
+// CREATE TABLE IF NOT EXISTS above handles both fresh and existing DBs.
