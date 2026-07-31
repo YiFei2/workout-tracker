@@ -19,5 +19,5 @@ export function unitToKg(value: number, unit: WeightUnit): number {
   if (unit === "kg") {
     return value;
   }
-  return roundToOneDecimal(value * KG_PER_LB);
+  return value * KG_PER_LB;
 }
