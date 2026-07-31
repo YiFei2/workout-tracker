@@ -1,6 +1,9 @@
+import { useMemo } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useTheme } from "../contexts/ThemeContext";
 import type { RestTimerState } from "../hooks/useRestTimer";
+import type { ThemeColors } from "../lib/theme";
 
 interface Props {
   timer: RestTimerState | null;
@@ -16,6 +19,9 @@ function formatSeconds(totalSeconds: number): string {
 }
 
 export function RestTimerOverlay({ timer, adjustStep, onAdjust, onDismiss }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (!timer) {
     return null;
   }
@@ -45,53 +51,57 @@ export function RestTimerOverlay({ timer, adjustStep, onAdjust, onDismiss }: Pro
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-  card: {
-    backgroundColor: "white",
-    borderRadius: 16,
-    padding: 28,
-    alignItems: "center",
-    gap: 16,
-    minWidth: 240,
-  },
-  label: {
-    fontSize: 14,
-    color: "#666",
-  },
-  clock: {
-    fontSize: 48,
-    fontWeight: "700",
-    fontVariant: ["tabular-nums"],
-  },
-  adjustRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  adjustButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: "#f2f2f2",
-  },
-  adjustButtonText: {
-    fontWeight: "600",
-  },
-  skipButton: {
-    marginTop: 4,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    backgroundColor: "#2563eb",
-  },
-  skipButtonText: {
-    color: "white",
-    fontWeight: "600",
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 24,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 28,
+      alignItems: "center",
+      gap: 16,
+      minWidth: 240,
+    },
+    label: {
+      fontSize: 14,
+      color: colors.textMuted,
+    },
+    clock: {
+      fontSize: 48,
+      fontWeight: "700",
+      fontVariant: ["tabular-nums"],
+      color: colors.text,
+    },
+    adjustRow: {
+      flexDirection: "row",
+      gap: 12,
+    },
+    adjustButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceMuted,
+    },
+    adjustButtonText: {
+      fontWeight: "600",
+      color: colors.text,
+    },
+    skipButton: {
+      marginTop: 4,
+      paddingVertical: 10,
+      paddingHorizontal: 24,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+    },
+    skipButtonText: {
+      color: colors.primaryText,
+      fontWeight: "600",
+    },
+  });
+}

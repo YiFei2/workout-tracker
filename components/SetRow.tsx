@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+
+import { useTheme } from "../contexts/ThemeContext";
+import type { ThemeColors } from "../lib/theme";
 
 export interface SetRowValues {
   reps: number;
@@ -28,6 +31,9 @@ export function SetRow({
   onToggleCompleted,
   onRemove,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [reps, setReps] = useState(String(repsValue));
   const [weight, setWeight] = useState(String(weightValue));
 
@@ -80,6 +86,7 @@ export function SetRow({
         onChangeText={setReps}
         onEndEditing={commitReps}
         keyboardType="numeric"
+        placeholderTextColor={colors.textMuted}
       />
       <TextInput
         style={styles.setInput}
@@ -87,6 +94,7 @@ export function SetRow({
         onChangeText={setWeight}
         onEndEditing={commitWeight}
         keyboardType="numeric"
+        placeholderTextColor={colors.textMuted}
       />
       {onToggleCompleted ? (
         <Pressable
@@ -105,40 +113,43 @@ export function SetRow({
   );
 }
 
-const styles = StyleSheet.create({
-  setRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "white",
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  setLabel: { width: 48, fontSize: 13, color: "#666" },
-  setReadOnlyText: { fontSize: 14 },
-  setInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    fontSize: 14,
-    textAlign: "center",
-  },
-  doneButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    backgroundColor: "#e5e7eb",
-  },
-  doneButtonActive: { backgroundColor: "#16a34a" },
-  doneButtonText: { fontSize: 13, fontWeight: "600", color: "#333" },
-  doneButtonTextActive: { color: "white" },
-  removeButton: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-  },
-  removeButtonText: { color: "#999", fontSize: 16 },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    setRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      backgroundColor: colors.surface,
+      borderRadius: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+    },
+    setLabel: { width: 48, fontSize: 13, color: colors.textMuted },
+    setReadOnlyText: { fontSize: 14, color: colors.text },
+    setInput: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+      fontSize: 14,
+      textAlign: "center",
+      color: colors.text,
+    },
+    doneButton: {
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 6,
+      backgroundColor: colors.neutralBg,
+    },
+    doneButtonActive: { backgroundColor: colors.success },
+    doneButtonText: { fontSize: 13, fontWeight: "600", color: colors.text },
+    doneButtonTextActive: { color: colors.primaryText },
+    removeButton: {
+      paddingHorizontal: 6,
+      paddingVertical: 4,
+    },
+    removeButtonText: { color: colors.textMuted, fontSize: 16 },
+  });
+}

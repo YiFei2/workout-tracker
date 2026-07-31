@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+
+import { useTheme } from "../contexts/ThemeContext";
+import type { ThemeColors } from "../lib/theme";
 
 interface Props {
   visible: boolean;
@@ -18,6 +21,9 @@ export function NamePromptModal({
   onCancel,
   onSubmit,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [value, setValue] = useState(initialValue);
 
   useEffect(() => {
@@ -44,13 +50,14 @@ export function NamePromptModal({
             value={value}
             onChangeText={setValue}
             placeholder="Name"
+            placeholderTextColor={colors.textMuted}
             autoFocus
             onSubmitEditing={handleSubmit}
             returnKeyType="done"
           />
           <View style={styles.actions}>
             <Pressable style={styles.button} onPress={onCancel}>
-              <Text>Cancel</Text>
+              <Text style={styles.buttonText}>Cancel</Text>
             </Pressable>
             <Pressable style={[styles.button, styles.primary]} onPress={handleSubmit}>
               <Text style={styles.primaryText}>{submitLabel}</Text>
@@ -62,46 +69,53 @@ export function NamePromptModal({
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    padding: 24,
-  },
-  card: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 20,
-    gap: 12,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-  },
-  actions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
-  },
-  button: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-  },
-  primary: {
-    backgroundColor: "#2563eb",
-  },
-  primaryText: {
-    color: "white",
-    fontWeight: "600",
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: "center",
+      padding: 24,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 20,
+      gap: 12,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 16,
+      color: colors.text,
+    },
+    actions: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      gap: 12,
+    },
+    button: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 8,
+    },
+    buttonText: {
+      color: colors.text,
+    },
+    primary: {
+      backgroundColor: colors.primary,
+    },
+    primaryText: {
+      color: colors.primaryText,
+      fontWeight: "600",
+    },
+  });
+}

@@ -1,15 +1,20 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { ExerciseFormModal, type ExerciseFormValues } from "../../components/ExerciseFormModal";
 import { RestTimerOverlay } from "../../components/RestTimerOverlay";
 import { SetRow } from "../../components/SetRow";
+import { useTheme } from "../../contexts/ThemeContext";
 import { useRestTimer } from "../../hooks/useRestTimer";
 import { useSession } from "../../hooks/useSession";
+import type { ThemeColors } from "../../lib/theme";
 import type { LoggedExercise, WorkoutSet } from "../../types";
 
 export default function SessionScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const {
@@ -30,7 +35,7 @@ export default function SessionScreen() {
   if (loading && !session) {
     return (
       <View style={styles.container}>
-        <Text>Loading…</Text>
+        <Text style={styles.emptyText}>Loading…</Text>
       </View>
     );
   }
@@ -38,7 +43,7 @@ export default function SessionScreen() {
   if (!session) {
     return (
       <View style={styles.container}>
-        <Text>Session not found</Text>
+        <Text style={styles.emptyText}>Session not found</Text>
       </View>
     );
   }
@@ -172,60 +177,62 @@ export default function SessionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollContent: { padding: 16, gap: 12, paddingBottom: 40 },
-  emptyText: { textAlign: "center", color: "#666", marginTop: 20 },
-  exerciseCard: {
-    backgroundColor: "#f2f2f2",
-    borderRadius: 12,
-    padding: 14,
-    gap: 8,
-  },
-  exerciseHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  exerciseTitleArea: { flex: 1 },
-  exerciseName: { fontSize: 16, fontWeight: "600" },
-  exerciseRest: { fontSize: 12, color: "#666", marginTop: 2 },
-  removeButton: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-  },
-  removeButtonText: { color: "#999", fontSize: 16 },
-  addSetButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  addSetButtonText: { color: "#2563eb", fontWeight: "600", fontSize: 13 },
-  addButton: {
-    backgroundColor: "#2563eb",
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  addButtonText: { color: "white", fontWeight: "600" },
-  finishRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  discardButton: {
-    flex: 1,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: "center",
-    backgroundColor: "#fee2e2",
-  },
-  discardButtonText: { color: "#dc2626", fontWeight: "700" },
-  completeButton: {
-    flex: 2,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: "center",
-    backgroundColor: "#16a34a",
-  },
-  completeButtonText: { color: "white", fontWeight: "700" },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    scrollContent: { padding: 16, gap: 12, paddingBottom: 40 },
+    emptyText: { textAlign: "center", color: colors.textMuted, marginTop: 20 },
+    exerciseCard: {
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 12,
+      padding: 14,
+      gap: 8,
+    },
+    exerciseHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+    },
+    exerciseTitleArea: { flex: 1 },
+    exerciseName: { fontSize: 16, fontWeight: "600", color: colors.text },
+    exerciseRest: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+    removeButton: {
+      paddingHorizontal: 6,
+      paddingVertical: 4,
+    },
+    removeButtonText: { color: colors.textMuted, fontSize: 16 },
+    addSetButton: {
+      alignSelf: "flex-start",
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+    },
+    addSetButtonText: { color: colors.primary, fontWeight: "600", fontSize: 13 },
+    addButton: {
+      backgroundColor: colors.primary,
+      borderRadius: 10,
+      paddingVertical: 14,
+      alignItems: "center",
+    },
+    addButtonText: { color: colors.primaryText, fontWeight: "600" },
+    finishRow: {
+      flexDirection: "row",
+      gap: 12,
+    },
+    discardButton: {
+      flex: 1,
+      borderRadius: 10,
+      paddingVertical: 14,
+      alignItems: "center",
+      backgroundColor: colors.dangerBg,
+    },
+    discardButtonText: { color: colors.danger, fontWeight: "700" },
+    completeButton: {
+      flex: 2,
+      borderRadius: 10,
+      paddingVertical: 14,
+      alignItems: "center",
+      backgroundColor: colors.success,
+    },
+    completeButtonText: { color: colors.primaryText, fontWeight: "700" },
+  });
+}

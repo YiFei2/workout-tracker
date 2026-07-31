@@ -1,11 +1,16 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useRouter } from "expo-router";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { NamePromptModal } from "../../components/NamePromptModal";
+import { useTheme } from "../../contexts/ThemeContext";
 import { useTemplates } from "../../hooks/useTemplates";
+import type { ThemeColors } from "../../lib/theme";
 
 export default function TemplatesScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const { templates, loading, create } = useTemplates();
   const [creating, setCreating] = useState(false);
   const router = useRouter();
@@ -54,30 +59,32 @@ export default function TemplatesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  list: { flexGrow: 1, padding: 16, gap: 10 },
-  row: {
-    backgroundColor: "#f2f2f2",
-    borderRadius: 10,
-    padding: 14,
-    gap: 4,
-  },
-  rowTitle: { fontSize: 16, fontWeight: "600" },
-  rowSubtitle: { fontSize: 13, color: "#666" },
-  emptyText: {
-    textAlign: "center",
-    color: "#666",
-    marginTop: 40,
-  },
-  fab: {
-    position: "absolute",
-    right: 16,
-    bottom: 24,
-    backgroundColor: "#2563eb",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 24,
-  },
-  fabText: { color: "white", fontWeight: "600" },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    list: { flexGrow: 1, padding: 16, gap: 10 },
+    row: {
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 10,
+      padding: 14,
+      gap: 4,
+    },
+    rowTitle: { fontSize: 16, fontWeight: "600", color: colors.text },
+    rowSubtitle: { fontSize: 13, color: colors.textMuted },
+    emptyText: {
+      textAlign: "center",
+      color: colors.textMuted,
+      marginTop: 40,
+    },
+    fab: {
+      position: "absolute",
+      right: 16,
+      bottom: 24,
+      backgroundColor: colors.primary,
+      paddingVertical: 14,
+      paddingHorizontal: 20,
+      borderRadius: 24,
+    },
+    fabText: { color: colors.primaryText, fontWeight: "600" },
+  });
+}

@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+
+import { useTheme } from "../contexts/ThemeContext";
+import type { ThemeColors } from "../lib/theme";
 
 export interface ExerciseFormValues {
   exerciseName: string;
@@ -28,6 +31,9 @@ export function ExerciseFormModal({
   onCancel,
   onSubmit,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [exerciseName, setExerciseName] = useState("");
   const [restSeconds, setRestSeconds] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +79,7 @@ export function ExerciseFormModal({
             value={exerciseName}
             onChangeText={setExerciseName}
             placeholder="e.g. Bench Press"
+            placeholderTextColor={colors.textMuted}
             autoFocus
           />
 
@@ -83,13 +90,14 @@ export function ExerciseFormModal({
             onChangeText={setRestSeconds}
             keyboardType="numeric"
             placeholder="e.g. 90"
+            placeholderTextColor={colors.textMuted}
           />
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <View style={styles.actions}>
             <Pressable style={styles.button} onPress={onCancel}>
-              <Text>Cancel</Text>
+              <Text style={styles.buttonText}>Cancel</Text>
             </Pressable>
             <Pressable style={[styles.button, styles.primary]} onPress={handleSubmit}>
               <Text style={styles.primaryText}>{submitLabel}</Text>
@@ -101,55 +109,62 @@ export function ExerciseFormModal({
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    padding: 24,
-  },
-  card: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 20,
-    gap: 10,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  label: {
-    fontSize: 12,
-    color: "#666",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-  },
-  error: {
-    color: "#dc2626",
-    fontSize: 13,
-  },
-  actions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
-    marginTop: 4,
-  },
-  button: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-  },
-  primary: {
-    backgroundColor: "#2563eb",
-  },
-  primaryText: {
-    color: "white",
-    fontWeight: "600",
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: "center",
+      padding: 24,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 20,
+      gap: 10,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    label: {
+      fontSize: 12,
+      color: colors.textMuted,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 16,
+      color: colors.text,
+    },
+    error: {
+      color: colors.danger,
+      fontSize: 13,
+    },
+    actions: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      gap: 12,
+      marginTop: 4,
+    },
+    button: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 8,
+    },
+    buttonText: {
+      color: colors.text,
+    },
+    primary: {
+      backgroundColor: colors.primary,
+    },
+    primaryText: {
+      color: colors.primaryText,
+      fontWeight: "600",
+    },
+  });
+}
