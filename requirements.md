@@ -16,6 +16,7 @@ A reusable plan the user builds in advance.
 ### TemplateExercise
 A slot in a template.
 - `id`, `exerciseName`, `restSeconds` (nullable — rest timer duration between this exercise's sets)
+- `exerciseGroupId` (nullable — links this slot to an `ExerciseGroup`; `exerciseName` acts as the default/current member)
 - Contains an ordered list of `TemplateSet`
 - Order is user-defined and should be persisted
 
@@ -27,16 +28,31 @@ A single default set within a template exercise, individually configurable (e.g.
 A logged instance of actually doing a workout.
 - `id`, `name` (defaults to template name or date), `startedAt`, `completedAt`
 - Optionally references a `WorkoutTemplate` (can also be ad hoc)
+- `locationId` (nullable — the gym this session was logged at; see `Location`)
 - Contains an ordered list of `LoggedExercise`
 
 ### LoggedExercise
 An exercise within a session.
 - `id`, `exerciseName`, `restSeconds` (nullable — defaults from the template exercise, adjustable during the session)
+- `exerciseGroupId` (nullable — inherited from the template exercise at session start; enables in-session swapping between group members)
 - Contains an ordered list of `Set`
 
 ### Set
 A single set within an exercise.
 - `id`, `weight` (kg or lb), `reps`, `completed` (bool)
+
+### Location
+A gym or place the user works out, used to keep weight numbers separate across locations whose machines/equipment measure differently.
+- `id`, `name`, `createdAt`
+
+### ExerciseGroup
+A named, reusable set of interchangeable exercises (e.g. "Chest Press" → Barbell Bench Press, Dumbbell Bench Press, Machine Chest Press) that a user can swap between smoothly.
+- `id`, `name`, `createdAt`
+- Contains an ordered list of `ExerciseGroupMember`
+
+### ExerciseGroupMember
+One exercise belonging to an `ExerciseGroup`.
+- `id`, `exerciseName`, order
 
 ---
 
@@ -105,6 +121,27 @@ A single set within an exercise.
 
 ---
 
+### 4. Locations & Exercise Substitution
+
+Two independent, lightweight flexibility features: tracking weight per gym, and swapping between interchangeable exercises.
+
+**Locations**
+- Manage a simple user-created list of locations (add / rename / delete) from Settings → Manage Locations
+- A `WorkoutSession` optionally references one `Location` (one per session, never required) — set or changed from a "📍 Set location" row on the session screen while it's in progress
+- History shows the location name on each session row when set
+- Deleting a location clears the tag from any sessions that referenced it; their logged data is untouched
+- Locations are not tied to templates or exercises — the same template works at any gym, only the logged numbers are kept apart per location
+
+**Exercise Substitution Groups**
+- Manage reusable, named `ExerciseGroup`s (add / rename / delete, add / remove member exercises) from Settings → Manage Exercise Groups
+- A `TemplateExercise` slot can optionally link to a group; its `exerciseName` acts as that slot's default member
+- Starting a session from a template copies the group link onto the resulting `LoggedExercise`
+- During an active session, an exercise linked to a group shows a "⇄ Swap" action to switch to any other member — the swapped-to exercise starts with a single blank default set (reps/weight from the old exercise aren't meaningful for a different one)
+- Deleting a group unlinks any templates/sessions referencing it; they keep their current exercise name as plain text
+- Out of scope for now: remembering a preferred substitute per location, and carrying template-level group links back from an in-session swap (see `backlog.md`)
+
+---
+
 ## Non-Functional Requirements
 
 - **Offline-first**: all data stored locally (expo-sqlite)
@@ -137,8 +174,9 @@ A single set within an exercise.
 - **Active Workout Session**: start from a template (copies exercises/sets as a snapshot) or start blank, from the History tab; `app/session/[id].tsx` supports inline edit of weight/reps per set, mark-complete checkbox, add/remove sets and exercises, complete (saves to history) or discard. Backed by `db/sessions.ts` and `hooks/useSession.ts`. Exercise reordering intentionally omitted, same as templates. Typechecks and bundles cleanly — verified 2026-07-30. **Not yet manually tested on-device.**
 - **Rest timer**: adjustable countdown (`components/RestTimerOverlay.tsx`, `hooks/useRestTimer.ts`) triggered when a set is marked complete, using that exercise's `restSeconds`; +/-15s adjust, skip/dismiss, auto-dismisses at 0. Typechecks and bundles cleanly — verified 2026-07-30. **Not yet manually tested on-device.**
 - **Light/dark theme**: persisted Light/Dark/System preference (`contexts/ThemeContext.tsx`, backed by a new `settings` key-value table, `db/settings.ts`, schema v3) drives a shared color-token palette (`lib/theme.ts`) plus React Navigation's header/tab-bar chrome (`app/_layout.tsx`). Every screen and shared component now sources its colors from `useTheme()`. New Settings tab (`app/(tabs)/settings.tsx`) exposes the picker. Typechecks cleanly — verified 2026-07-31. **Not yet manually tested on-device.**
+- **Locations & Exercise Substitution Groups**: schema v4 (`db/schema.ts`/`db/client.ts`) adds `locations`, `exercise_groups`, `exercise_group_members` tables plus nullable `location_id` on `sessions` and nullable `exercise_group_id` on `template_exercises`/`logged_exercises`, applied via `ALTER TABLE` (data-preserving, unlike the v2 drop/recreate) for existing installs. New DB layer (`db/locations.ts`, `db/exerciseGroups.ts`) and hooks (`hooks/useLocations.ts`, `hooks/useExerciseGroups.ts`, `hooks/useExerciseGroup.ts`); `db/sessions.ts` gained `setSessionLocation`/`swapLoggedExercise` (swap resets the exercise to a single blank default set), `db/templates.ts` threads `exerciseGroupId` through exercise CRUD. New generic `components/PickerModal.tsx` powers group/member/location selection. New screens `app/locations/index.tsx`, `app/exercise-groups/index.tsx`, `app/exercise-groups/[id].tsx`, reachable from a new "Data" section in Settings. `app/template/[id].tsx` gained link/change/unlink-group affordances per exercise; `app/session/[id].tsx` gained a location picker and a "⇄ Swap" action per grouped exercise; `app/(tabs)/history.tsx` shows the location name per row. Typechecks and bundles cleanly (`npx expo export`) — verified 2026-08-01. **Not yet manually tested on-device.**
 
-Manual pass needed for the three items above before calling them "tested" (same Expo Go setup as before — SDK 54, scan a fresh QR from `npm start`):
+Manual pass needed for the items above before calling them "tested" (same Expo Go setup as before — SDK 54, scan a fresh QR from `npm start`):
   - [ ] Open an existing template, add a second/third set to an exercise with different reps/weight per set, confirm each persists independently
   - [ ] Set a rest duration on a template exercise (e.g. 30s), start a workout from that template
   - [ ] Mark a set complete, confirm the rest timer overlay appears and counts down
@@ -149,14 +187,17 @@ Manual pass needed for the three items above before calling them "tested" (same 
   - [ ] Tap into that history entry, confirm it renders read-only (no edit controls)
   - [ ] Start a blank workout from History, confirm it starts empty and can still be built up and completed
   - [ ] Delete a session from History, confirm it disappears
+  - [ ] Settings → Manage Locations: add a location, rename it, delete it, confirm the list updates each time
+  - [ ] Settings → Manage Exercise Groups: create a group, add 2-3 member exercises, rename the group, remove a member, delete the group
+  - [ ] On a template exercise, tap "+ Link substitution group", pick a group, confirm the exercise name updates to the group's first member and "Substitutes: <group>" shows
+  - [ ] Tap "Change" on a linked template exercise, pick a different member, confirm the name updates; tap "Unlink", confirm it reverts to a plain exercise with no group row
+  - [ ] Start a session from a template with a linked exercise, confirm the "⇄ Swap" button appears on that exercise
+  - [ ] Tap Swap, pick a different member, confirm the exercise name changes and its sets reset to a single blank default set (existing logged reps/weight are gone)
+  - [ ] On the session screen, tap "Set location", pick a location, confirm it displays; change it to a different location, then to "No location", confirm each persists after leaving and re-opening the session
+  - [ ] Complete a session with a location set, confirm History shows the location name in that row
+  - [ ] Delete a location from Settings that's referenced by a past session, confirm the session's history entry still opens fine (location tag just disappears)
+  - [ ] Confirm an app upgrade from an existing on-device DB (pre-v4 data, e.g. existing templates/sessions) still opens without errors and old data is intact (tests the `ALTER TABLE` migration path, not just a fresh install)
 
 ---
 
-## Future Features
-
-- **Exercise library**: enforce exercise names against a curated list with muscle group metadata; migrate free-text names to library entries
-- **Weight unit setting**: global kg/lb preference with per-set stored unit so history remains accurate after switching
-- **Drag-to-reorder**: reorder exercises within a template or active session
-- **Progress charts**: visualise weight/volume progression per exercise over time
-- **Cloud sync**: user accounts, cross-device sync
-- **Export**: CSV or JSON export of workout history
+See `backlog.md` for future feature ideas and open bugs.

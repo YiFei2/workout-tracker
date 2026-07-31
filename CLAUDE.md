@@ -53,4 +53,8 @@ See `requirements.md` for full entity definitions. Key types:
 
 ## Product Direction
 
-Any new feature ideas, scope decisions, or product direction notes go directly into `requirements.md` — either expanding an existing section or adding to the **Future Features** section. Do not let ideas get lost in conversation.
+Any new feature ideas, scope decisions, or product direction notes go directly into `requirements.md` — expanding an existing section as appropriate. Do not let ideas get lost in conversation.
+
+## Backlog
+
+Open bugs and future feature ideas live in `backlog.md` (**Bugs** and **Future Enhancements** sections), not in conversation. Add to it whenever a bug is found but deferred, or a feature idea comes up that's out of scope for the current work.

@@ -10,6 +10,8 @@ export interface SessionSummary {
   completedAt: string | null;
   exerciseCount: number;
   completedSetCount: number;
+  locationId: string | null;
+  locationName: string | null;
 }
 
 export interface NewLoggedExerciseInput {
@@ -34,6 +36,7 @@ interface SessionRow {
   template_id: string | null;
   started_at: string;
   completed_at: string | null;
+  location_id: string | null;
 }
 
 interface LoggedExerciseRow {
@@ -42,6 +45,7 @@ interface LoggedExerciseRow {
   exercise_name: string;
   order_index: number;
   rest_seconds: number | null;
+  exercise_group_id: string | null;
 }
 
 interface SetRow {
@@ -71,6 +75,7 @@ function toLoggedExercise(row: LoggedExerciseRow, sets: WorkoutSet[]): LoggedExe
     exerciseName: row.exercise_name,
     order: row.order_index,
     restSeconds: row.rest_seconds,
+    exerciseGroupId: row.exercise_group_id,
     sets,
   };
 }
@@ -84,11 +89,14 @@ export async function listSessions(): Promise<SessionSummary[]> {
     completed_at: string | null;
     exercise_count: number;
     completed_set_count: number;
+    location_id: string | null;
+    location_name: string | null;
   }>(
-    `SELECT s.id, s.name, s.started_at, s.completed_at,
+    `SELECT s.id, s.name, s.started_at, s.completed_at, s.location_id, loc.name AS location_name,
         COUNT(DISTINCT le.id) AS exercise_count,
         COUNT(CASE WHEN st.completed = 1 THEN 1 END) AS completed_set_count
      FROM sessions s
+     LEFT JOIN locations loc ON loc.id = s.location_id
      LEFT JOIN logged_exercises le ON le.session_id = s.id
      LEFT JOIN sets st ON st.exercise_id = le.id
      WHERE s.completed_at IS NOT NULL
@@ -102,6 +110,8 @@ export async function listSessions(): Promise<SessionSummary[]> {
     completedAt: row.completed_at,
     exerciseCount: row.exercise_count,
     completedSetCount: row.completed_set_count,
+    locationId: row.location_id,
+    locationName: row.location_name,
   }));
 }
 
@@ -143,6 +153,7 @@ export async function getSession(id: string): Promise<WorkoutSession | null> {
     templateId: sessionRow.template_id,
     startedAt: sessionRow.started_at,
     completedAt: sessionRow.completed_at,
+    locationId: sessionRow.location_id,
     exercises: exerciseRows.map((row) => toLoggedExercise(row, setsByExercise.get(row.id) ?? [])),
   };
 }
@@ -154,13 +165,21 @@ export async function startBlankSession(name?: string): Promise<WorkoutSession> 
   const sessionName = name?.trim() || new Date().toLocaleString();
 
   await db.runAsync(
-    "INSERT INTO sessions (id, name, template_id, started_at, completed_at) VALUES (?, ?, NULL, ?, NULL)",
+    "INSERT INTO sessions (id, name, template_id, started_at, completed_at, location_id) VALUES (?, ?, NULL, ?, NULL, NULL)",
     id,
     sessionName,
     now,
   );
 
-  return { id, name: sessionName, templateId: null, startedAt: now, completedAt: null, exercises: [] };
+  return {
+    id,
+    name: sessionName,
+    templateId: null,
+    startedAt: now,
+    completedAt: null,
+    locationId: null,
+    exercises: [],
+  };
 }
 
 export async function startSessionFromTemplate(templateId: string): Promise<WorkoutSession> {
@@ -174,7 +193,7 @@ export async function startSessionFromTemplate(templateId: string): Promise<Work
   const now = new Date().toISOString();
 
   await db.runAsync(
-    "INSERT INTO sessions (id, name, template_id, started_at, completed_at) VALUES (?, ?, ?, ?, NULL)",
+    "INSERT INTO sessions (id, name, template_id, started_at, completed_at, location_id) VALUES (?, ?, ?, ?, NULL, NULL)",
     id,
     template.name,
     templateId,
@@ -185,13 +204,14 @@ export async function startSessionFromTemplate(templateId: string): Promise<Work
   for (const templateExercise of template.exercises) {
     const exerciseId = generateId();
     await db.runAsync(
-      `INSERT INTO logged_exercises (id, session_id, exercise_name, order_index, rest_seconds)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO logged_exercises (id, session_id, exercise_name, order_index, rest_seconds, exercise_group_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       exerciseId,
       id,
       templateExercise.exerciseName,
       templateExercise.order,
       templateExercise.restSeconds,
+      templateExercise.exerciseGroupId,
     );
 
     const sets: WorkoutSet[] = [];
@@ -222,6 +242,7 @@ export async function startSessionFromTemplate(templateId: string): Promise<Work
       exerciseName: templateExercise.exerciseName,
       order: templateExercise.order,
       restSeconds: templateExercise.restSeconds,
+      exerciseGroupId: templateExercise.exerciseGroupId,
       sets,
     });
   }
@@ -232,8 +253,14 @@ export async function startSessionFromTemplate(templateId: string): Promise<Work
     templateId,
     startedAt: now,
     completedAt: null,
+    locationId: null,
     exercises,
   };
+}
+
+export async function setSessionLocation(sessionId: string, locationId: string | null): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("UPDATE sessions SET location_id = ? WHERE id = ?", locationId, sessionId);
 }
 
 export async function completeSession(id: string): Promise<void> {
@@ -265,8 +292,8 @@ export async function addLoggedExercise(
   const restSeconds = input.restSeconds ?? null;
 
   await db.runAsync(
-    `INSERT INTO logged_exercises (id, session_id, exercise_name, order_index, rest_seconds)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO logged_exercises (id, session_id, exercise_name, order_index, rest_seconds, exercise_group_id)
+     VALUES (?, ?, ?, ?, ?, NULL)`,
     id,
     sessionId,
     input.exerciseName,
@@ -282,6 +309,7 @@ export async function addLoggedExercise(
     exerciseName: input.exerciseName,
     order,
     restSeconds,
+    exerciseGroupId: null,
     sets: [set],
   };
 }
@@ -310,6 +338,17 @@ export async function updateLoggedExercise(id: string, patch: LoggedExercisePatc
 export async function removeLoggedExercise(id: string): Promise<void> {
   const db = await getDb();
   await db.runAsync("DELETE FROM logged_exercises WHERE id = ?", id);
+}
+
+// Swaps a logged exercise for a different member of its substitution group
+// (e.g. Barbell Bench -> Dumbbell Bench). The numbers from the old exercise
+// aren't meaningful for the new one, so existing sets are discarded in
+// favor of a single blank default set, same as a freshly added exercise.
+export async function swapLoggedExercise(id: string, exerciseName: string): Promise<WorkoutSet> {
+  const db = await getDb();
+  await db.runAsync("UPDATE logged_exercises SET exercise_name = ? WHERE id = ?", exerciseName, id);
+  await db.runAsync("DELETE FROM sets WHERE exercise_id = ?", id);
+  return addSet(id, { reps: 10, weight: 0 });
 }
 
 // Copies the last set's weight/reps as the default for the new set, per

@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useTheme, type ThemeMode } from "../../contexts/ThemeContext";
@@ -47,6 +48,7 @@ function SegmentedControl<T extends string>({ options, value, onChange }: Segmen
 export default function SettingsScreen() {
   const { mode, colors, setMode } = useTheme();
   const { unit, setUnit } = useWeightUnit();
+  const router = useRouter();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -57,6 +59,24 @@ export default function SettingsScreen() {
         Weight Unit
       </Text>
       <SegmentedControl options={UNIT_OPTIONS} value={unit} onChange={setUnit} />
+
+      <Text style={[styles.sectionTitle, styles.sectionSpacing, { color: colors.textMuted }]}>
+        Data
+      </Text>
+      <Pressable
+        style={[styles.navRow, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
+        onPress={() => router.push("/locations")}
+      >
+        <Text style={[styles.navRowText, { color: colors.text }]}>Manage Locations</Text>
+        <Text style={{ color: colors.textMuted }}>›</Text>
+      </Pressable>
+      <Pressable
+        style={[styles.navRow, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
+        onPress={() => router.push("/exercise-groups")}
+      >
+        <Text style={[styles.navRowText, { color: colors.text }]}>Manage Exercise Groups</Text>
+        <Text style={{ color: colors.textMuted }}>›</Text>
+      </Pressable>
     </View>
   );
 }
@@ -79,4 +99,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   segmentText: { fontWeight: "600", fontSize: 14 },
+  navRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  navRowText: { fontSize: 15, fontWeight: "600" },
 });

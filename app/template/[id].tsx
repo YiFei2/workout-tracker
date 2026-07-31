@@ -4,9 +4,11 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 
 import { ExerciseFormModal, type ExerciseFormValues } from "../../components/ExerciseFormModal";
 import { NamePromptModal } from "../../components/NamePromptModal";
+import { PickerModal } from "../../components/PickerModal";
 import { SetRow, SetRowHeader } from "../../components/SetRow";
 import { useTheme } from "../../contexts/ThemeContext";
 import { deleteTemplate, startSessionFromTemplate } from "../../db";
+import { useExerciseGroups } from "../../hooks/useExerciseGroups";
 import { useTemplate } from "../../hooks/useTemplate";
 import type { ThemeColors } from "../../lib/theme";
 import type { TemplateExercise } from "../../types";
@@ -28,11 +30,15 @@ export default function TemplateDetailScreen() {
     updateSet,
     removeSet,
   } = useTemplate(id);
+  const { groups } = useExerciseGroups();
+  const groupsById = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups]);
 
   const [renaming, setRenaming] = useState(false);
   const [addingExercise, setAddingExercise] = useState(false);
   const [editingExercise, setEditingExercise] = useState<TemplateExercise | null>(null);
   const [starting, setStarting] = useState(false);
+  const [linkingGroupFor, setLinkingGroupFor] = useState<TemplateExercise | null>(null);
+  const [changingMemberFor, setChangingMemberFor] = useState<TemplateExercise | null>(null);
 
   if (loading && !template) {
     return (
@@ -89,6 +95,37 @@ export default function TemplateDetailScreen() {
     await addSet(exercise.id, { reps: lastSet?.reps ?? 10, weight: lastSet?.weight ?? 0 });
   };
 
+  const handleSelectGroup = async (groupId: string) => {
+    const exercise = linkingGroupFor;
+    setLinkingGroupFor(null);
+    if (!exercise) return;
+    const group = groupsById.get(groupId);
+    const firstMember = group?.members[0];
+    if (!firstMember) {
+      Alert.alert("Empty group", "Add exercises to this group first (Settings → Exercise Groups).");
+      return;
+    }
+    await updateExercise(exercise.id, { exerciseGroupId: groupId, exerciseName: firstMember.exerciseName });
+  };
+
+  const handleSelectMember = async (exerciseName: string) => {
+    const exercise = changingMemberFor;
+    setChangingMemberFor(null);
+    if (!exercise) return;
+    await updateExercise(exercise.id, { exerciseName });
+  };
+
+  const handleUnlinkGroup = (exercise: TemplateExercise) => {
+    Alert.alert("Unlink group", `Stop linking "${exercise.exerciseName}" to a substitution group?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Unlink",
+        style: "destructive",
+        onPress: () => updateExercise(exercise.id, { exerciseGroupId: null }),
+      },
+    ]);
+  };
+
   const handleStartWorkout = async () => {
     setStarting(true);
     try {
@@ -142,6 +179,24 @@ export default function TemplateDetailScreen() {
                 <Text style={styles.removeButtonText}>✕</Text>
               </Pressable>
             </View>
+
+            {exercise.exerciseGroupId ? (
+              <View style={styles.groupRow}>
+                <Text style={styles.groupLabel}>
+                  Substitutes: {groupsById.get(exercise.exerciseGroupId)?.name ?? "Unknown group"}
+                </Text>
+                <Pressable onPress={() => setChangingMemberFor(exercise)}>
+                  <Text style={styles.groupAction}>Change</Text>
+                </Pressable>
+                <Pressable onPress={() => handleUnlinkGroup(exercise)}>
+                  <Text style={styles.groupAction}>Unlink</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable onPress={() => setLinkingGroupFor(exercise)}>
+                <Text style={styles.groupAction}>+ Link substitution group</Text>
+              </Pressable>
+            )}
 
             {exercise.sets.length > 0 && <SetRowHeader />}
 
@@ -200,6 +255,35 @@ export default function TemplateDetailScreen() {
         onCancel={() => setEditingExercise(null)}
         onSubmit={handleEditExercise}
       />
+
+      <PickerModal
+        visible={linkingGroupFor !== null}
+        title="Link substitution group"
+        items={groups.map((group) => ({
+          id: group.id,
+          label: group.name,
+          sublabel: `${group.members.length} exercise${group.members.length === 1 ? "" : "s"}`,
+        }))}
+        emptyText="No groups yet — create one in Settings → Exercise Groups."
+        onSelect={handleSelectGroup}
+        onCancel={() => setLinkingGroupFor(null)}
+      />
+
+      <PickerModal
+        visible={changingMemberFor !== null}
+        title="Choose default exercise"
+        items={
+          changingMemberFor?.exerciseGroupId
+            ? (groupsById.get(changingMemberFor.exerciseGroupId)?.members ?? []).map((member) => ({
+                id: member.exerciseName,
+                label: member.exerciseName,
+              }))
+            : []
+        }
+        selectedId={changingMemberFor?.exerciseName ?? null}
+        onSelect={handleSelectMember}
+        onCancel={() => setChangingMemberFor(null)}
+      />
     </View>
   );
 }
@@ -251,6 +335,13 @@ function createStyles(colors: ThemeColors) {
       paddingVertical: 4,
     },
     removeButtonText: { color: colors.textMuted, fontSize: 16 },
+    groupRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    groupLabel: { flex: 1, fontSize: 12, color: colors.textMuted },
+    groupAction: { fontSize: 12, fontWeight: "600", color: colors.primary },
     addSetButton: {
       alignSelf: "flex-start",
       paddingVertical: 6,

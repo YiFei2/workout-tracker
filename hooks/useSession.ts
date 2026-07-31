@@ -8,6 +8,8 @@ import {
   getSession,
   removeLoggedExercise,
   removeSet,
+  setSessionLocation,
+  swapLoggedExercise,
   updateLoggedExercise,
   updateSet,
   type LoggedExercisePatch,
@@ -82,6 +84,22 @@ export function useSession(id: string) {
     [refresh],
   );
 
+  const swapExercise = useCallback(
+    async (exerciseId: string, exerciseName: string) => {
+      await swapLoggedExercise(exerciseId, exerciseName);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const setLocation = useCallback(
+    async (locationId: string | null) => {
+      await setSessionLocation(id, locationId);
+      await refresh();
+    },
+    [id, refresh],
+  );
+
   const complete = useCallback(async () => {
     await completeSession(id);
     await refresh();
@@ -101,6 +119,8 @@ export function useSession(id: string) {
     addSet: addExerciseSet,
     updateSet: updateExerciseSet,
     removeSet: removeExerciseSet,
+    swapExercise,
+    setLocation,
     complete,
     discard,
   };

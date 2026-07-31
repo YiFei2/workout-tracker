@@ -5,3 +5,5 @@ export { getDb } from "./client";
 export * from "./templates";
 export * from "./sessions";
 export * from "./settings";
+export * from "./locations";
+export * from "./exerciseGroups";

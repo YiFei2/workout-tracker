@@ -56,6 +56,7 @@ export default function HistoryScreen() {
               <Text style={styles.rowSubtitle}>
                 {formatDate(item.startedAt)} · {item.exerciseCount} exercise
                 {item.exerciseCount === 1 ? "" : "s"} · {item.completedSetCount} sets completed
+                {item.locationName ? ` · ${item.locationName}` : ""}
               </Text>
             </View>
             <Pressable

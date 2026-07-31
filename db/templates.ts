@@ -13,11 +13,13 @@ export interface TemplateSummary {
 export interface NewTemplateExerciseInput {
   exerciseName: string;
   restSeconds?: number | null;
+  exerciseGroupId?: string | null;
 }
 
 export interface TemplateExercisePatch {
   exerciseName?: string;
   restSeconds?: number | null;
+  exerciseGroupId?: string | null;
 }
 
 export interface TemplateSetInput {
@@ -43,6 +45,7 @@ interface TemplateExerciseRow {
   exercise_name: string;
   order_index: number;
   rest_seconds: number | null;
+  exercise_group_id: string | null;
 }
 
 interface TemplateSetRow {
@@ -70,6 +73,7 @@ function toTemplateExercise(row: TemplateExerciseRow, sets: TemplateSet[]): Temp
     exerciseName: row.exercise_name,
     order: row.order_index,
     restSeconds: row.rest_seconds,
+    exerciseGroupId: row.exercise_group_id,
     sets,
   };
 }
@@ -186,15 +190,17 @@ export async function addTemplateExercise(
   );
   const order = (maxOrderRow?.max_order ?? -1) + 1;
   const restSeconds = input.restSeconds ?? null;
+  const exerciseGroupId = input.exerciseGroupId ?? null;
 
   await db.runAsync(
-    `INSERT INTO template_exercises (id, template_id, exercise_name, order_index, rest_seconds)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO template_exercises (id, template_id, exercise_name, order_index, rest_seconds, exercise_group_id)
+     VALUES (?, ?, ?, ?, ?, ?)`,
     id,
     templateId,
     input.exerciseName,
     order,
     restSeconds,
+    exerciseGroupId,
   );
   await touchTemplate(db, templateId);
 
@@ -206,6 +212,7 @@ export async function addTemplateExercise(
     exerciseName: input.exerciseName,
     order,
     restSeconds,
+    exerciseGroupId,
     sets: [firstSet],
   };
 }
@@ -226,12 +233,15 @@ export async function updateTemplateExercise(
   const next = {
     exercise_name: patch.exerciseName ?? existing.exercise_name,
     rest_seconds: patch.restSeconds !== undefined ? patch.restSeconds : existing.rest_seconds,
+    exercise_group_id:
+      patch.exerciseGroupId !== undefined ? patch.exerciseGroupId : existing.exercise_group_id,
   };
 
   await db.runAsync(
-    "UPDATE template_exercises SET exercise_name = ?, rest_seconds = ? WHERE id = ?",
+    "UPDATE template_exercises SET exercise_name = ?, rest_seconds = ?, exercise_group_id = ? WHERE id = ?",
     next.exercise_name,
     next.rest_seconds,
+    next.exercise_group_id,
     id,
   );
   await touchTemplate(db, existing.template_id);
