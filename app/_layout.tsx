@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 
 import { getDb } from '../db';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
+import { UnitProvider } from '../contexts/UnitContext';
 
 function RootLayoutNav() {
   const { scheme, colors } = useTheme();
@@ -41,7 +42,9 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <RootLayoutNav />
+      <UnitProvider>
+        <RootLayoutNav />
+      </UnitProvider>
     </ThemeProvider>
   );
 }
