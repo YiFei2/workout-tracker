@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useTheme } from "../contexts/ThemeContext";
+import { OverlayModal } from "./OverlayModal";
 import type { RestTimerState } from "../hooks/useRestTimer";
 import type { ThemeColors } from "../lib/theme";
 
@@ -27,7 +28,7 @@ export function RestTimerOverlay({ timer, adjustStep, onAdjust, onDismiss }: Pro
   }
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onDismiss}>
+    <OverlayModal visible={!!timer} onRequestClose={onDismiss}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <Text style={styles.label}>Resting — {timer.exerciseName}</Text>
@@ -47,7 +48,7 @@ export function RestTimerOverlay({ timer, adjustStep, onAdjust, onDismiss }: Pro
           </Pressable>
         </View>
       </View>
-    </Modal>
+    </OverlayModal>
   );
 }
 
@@ -55,10 +56,8 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     backdrop: {
       flex: 1,
-      backgroundColor: colors.overlay,
       justifyContent: "center",
       alignItems: "center",
-      padding: 24,
     },
     card: {
       backgroundColor: colors.surface,
