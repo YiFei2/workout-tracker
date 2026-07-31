@@ -2,6 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } fro
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { getDb } from '../db';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
@@ -41,10 +42,12 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <ThemeProvider>
-      <UnitProvider>
-        <RootLayoutNav />
-      </UnitProvider>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <UnitProvider>
+          <RootLayoutNav />
+        </UnitProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
