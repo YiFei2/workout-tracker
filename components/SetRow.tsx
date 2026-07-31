@@ -61,29 +61,40 @@ export function SetRow({
 
   const [reps, setReps] = useState(String(repsValue));
   const [weight, setWeight] = useState(String(kgToUnit(weightKg, unit)));
+  const [error, setError] = useState<string | null>(null);
+  const [isEditingReps, setIsEditingReps] = useState(false);
+  const [isEditingWeight, setIsEditingWeight] = useState(false);
 
   useEffect(() => {
+    if (isEditingReps) return;
     setReps(String(repsValue));
-  }, [repsValue]);
+  }, [repsValue, isEditingReps]);
 
   useEffect(() => {
+    if (isEditingWeight) return;
     setWeight(String(kgToUnit(weightKg, unit)));
-  }, [weightKg, unit]);
+  }, [weightKg, unit, isEditingWeight]);
 
   const commitReps = () => {
+    setIsEditingReps(false);
     const parsed = Number(reps);
     if (Number.isFinite(parsed) && parsed > 0) {
+      setError(null);
       onUpdate({ reps: parsed });
     } else {
+      setError("Reps must be a positive number");
       setReps(String(repsValue));
     }
   };
 
   const commitWeight = () => {
+    setIsEditingWeight(false);
     const parsed = Number(weight);
-    if (Number.isFinite(parsed) && parsed >= 0) {
+    if (weight.trim() !== "" && Number.isFinite(parsed) && parsed >= 0) {
+      setError(null);
       onUpdate({ weight: unitToKg(parsed, unit) });
     } else {
+      setError("Weight must be zero or a positive number");
       setWeight(String(kgToUnit(weightKg, unit)));
     }
   };
@@ -104,37 +115,48 @@ export function SetRow({
   }
 
   return (
-    <View style={styles.setRow}>
-      <Text style={styles.setLabel}>Set {index + 1}</Text>
-      <TextInput
-        style={styles.setInput}
-        value={reps}
-        onChangeText={setReps}
-        onEndEditing={commitReps}
-        keyboardType="numeric"
-        placeholderTextColor={colors.textMuted}
-      />
-      <TextInput
-        style={styles.setInput}
-        value={weight}
-        onChangeText={setWeight}
-        onEndEditing={commitWeight}
-        keyboardType="numeric"
-        placeholderTextColor={colors.textMuted}
-      />
-      {onToggleCompleted ? (
-        <Pressable
-          style={[styles.doneButton, completed && styles.doneButtonActive]}
-          onPress={onToggleCompleted}
-        >
-          <Text style={[styles.doneButtonText, completed && styles.doneButtonTextActive]}>
-            {completed ? "✓" : "Done"}
-          </Text>
+    <View>
+      <View style={styles.setRow}>
+        <Text style={styles.setLabel}>Set {index + 1}</Text>
+        <TextInput
+          style={styles.setInput}
+          value={reps}
+          onChangeText={(text) => {
+            setReps(text);
+            setError(null);
+          }}
+          onFocus={() => setIsEditingReps(true)}
+          onEndEditing={commitReps}
+          keyboardType="numeric"
+          placeholderTextColor={colors.textMuted}
+        />
+        <TextInput
+          style={styles.setInput}
+          value={weight}
+          onChangeText={(text) => {
+            setWeight(text);
+            setError(null);
+          }}
+          onFocus={() => setIsEditingWeight(true)}
+          onEndEditing={commitWeight}
+          keyboardType="numeric"
+          placeholderTextColor={colors.textMuted}
+        />
+        {onToggleCompleted ? (
+          <Pressable
+            style={[styles.doneButton, completed && styles.doneButtonActive]}
+            onPress={onToggleCompleted}
+          >
+            <Text style={[styles.doneButtonText, completed && styles.doneButtonTextActive]}>
+              {completed ? "✓" : "Done"}
+            </Text>
+          </Pressable>
+        ) : null}
+        <Pressable style={styles.removeButton} onPress={onRemove} hitSlop={8}>
+          <Text style={styles.removeButtonText}>✕</Text>
         </Pressable>
-      ) : null}
-      <Pressable style={styles.removeButton} onPress={onRemove} hitSlop={8}>
-        <Text style={styles.removeButtonText}>✕</Text>
-      </Pressable>
+      </View>
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
   );
 }
@@ -152,6 +174,12 @@ function createStyles(colors: ThemeColors) {
     },
     setLabel: { width: 48, fontSize: 13, color: colors.textMuted },
     setReadOnlyText: { fontSize: 14, color: colors.text },
+    errorText: {
+      color: colors.danger,
+      fontSize: 12,
+      paddingHorizontal: 12,
+      paddingTop: 2,
+    },
     setInput: {
       flex: 1,
       borderWidth: 1,
