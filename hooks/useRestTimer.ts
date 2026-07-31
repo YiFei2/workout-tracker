@@ -6,7 +6,6 @@ export interface RestTimerState {
   secondsLeft: number;
 }
 
-const MIN_SECONDS = 5;
 const ADJUST_STEP = 15;
 
 export function useRestTimer() {
@@ -52,7 +51,10 @@ export function useRestTimer() {
       if (!current) {
         return current;
       }
-      const secondsLeft = Math.max(MIN_SECONDS, current.secondsLeft + deltaSeconds);
+      const secondsLeft = current.secondsLeft + deltaSeconds;
+      if (secondsLeft <= 0) {
+        return null;
+      }
       return { ...current, secondsLeft, totalSeconds: Math.max(current.totalSeconds, secondsLeft) };
     });
   }, []);
