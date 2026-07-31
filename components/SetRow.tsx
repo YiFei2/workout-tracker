@@ -103,13 +103,14 @@ export function SetRow({
     return (
       <View style={styles.setRow}>
         <Text style={styles.setLabel}>Set {index + 1}</Text>
-        <Text style={styles.setReadOnlyText}>
-          {repsValue} reps @ {kgToUnit(weightKg, unit)}
-          {unit}
-        </Text>
+        <Text style={styles.readOnlyColumn}>{repsValue}</Text>
+        <Text style={styles.readOnlyColumn}>{kgToUnit(weightKg, unit)}</Text>
         {completed !== undefined ? (
-          <Text style={styles.setReadOnlyText}>{completed ? "Done" : "—"}</Text>
+          <View style={styles.headerDoneSpacer}>
+            <Text style={styles.setReadOnlyText}>{completed ? "✓" : "—"}</Text>
+          </View>
         ) : null}
+        <View style={styles.headerRemoveSpacer} />
       </View>
     );
   }
@@ -174,6 +175,7 @@ function createStyles(colors: ThemeColors) {
     },
     setLabel: { width: 48, fontSize: 13, color: colors.textMuted },
     setReadOnlyText: { fontSize: 14, color: colors.text },
+    readOnlyColumn: { flex: 1, textAlign: "center", fontSize: 14, color: colors.text },
     errorText: {
       color: colors.danger,
       fontSize: 12,
@@ -218,7 +220,7 @@ function createStyles(colors: ThemeColors) {
       color: colors.textMuted,
       textTransform: "uppercase",
     },
-    headerDoneSpacer: { width: 56 },
+    headerDoneSpacer: { width: 56, alignItems: "center" },
     headerRemoveSpacer: { width: 24 },
   });
 }

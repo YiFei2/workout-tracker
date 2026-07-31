@@ -125,7 +125,7 @@ export default function SessionScreen() {
               )}
             </View>
 
-            {exercise.sets.length > 0 && <SetRowHeader showCompletedColumn={!readOnly} />}
+            {exercise.sets.length > 0 && <SetRowHeader showCompletedColumn />}
 
             {exercise.sets.map((set, index) => (
               <SetRow
