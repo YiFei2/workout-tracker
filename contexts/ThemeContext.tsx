@@ -25,14 +25,12 @@ function isThemeMode(value: string | null): value is ThemeMode {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemScheme = useColorScheme();
   const [mode, setModeState] = useState<ThemeMode>("system");
-  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     getSetting(THEME_MODE_SETTING_KEY).then((stored) => {
       if (isThemeMode(stored)) {
         setModeState(stored);
       }
-      setLoaded(true);
     });
   }, []);
 
@@ -45,10 +43,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const colors = scheme === "dark" ? darkColors : lightColors;
 
   const value = useMemo(() => ({ mode, scheme, colors, setMode }), [mode, scheme, colors]);
-
-  if (!loaded) {
-    return null;
-  }
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

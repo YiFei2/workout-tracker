@@ -18,14 +18,12 @@ function isWeightUnit(value: string | null): value is WeightUnit {
 
 export function UnitProvider({ children }: { children: ReactNode }) {
   const [unit, setUnitState] = useState<WeightUnit>("kg");
-  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     getSetting(WEIGHT_UNIT_SETTING_KEY).then((stored) => {
       if (isWeightUnit(stored)) {
         setUnitState(stored);
       }
-      setLoaded(true);
     });
   }, []);
 
@@ -35,10 +33,6 @@ export function UnitProvider({ children }: { children: ReactNode }) {
   };
 
   const value = useMemo(() => ({ unit, setUnit }), [unit]);
-
-  if (!loaded) {
-    return null;
-  }
 
   return <UnitContext.Provider value={value}>{children}</UnitContext.Provider>;
 }
