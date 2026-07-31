@@ -98,8 +98,9 @@ export default function SessionScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <Stack.Screen options={{ title: session.name }} />
+    <View style={styles.screen}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+        <Stack.Screen options={{ title: session.name }} />
 
       {session.exercises.length === 0 ? (
         <Text style={styles.emptyText}>No exercises yet — add one below.</Text>
@@ -166,6 +167,8 @@ export default function SessionScreen() {
         </>
       )}
 
+      </ScrollView>
+
       <ExerciseFormModal
         visible={addingExercise}
         title="Add Exercise"
@@ -175,12 +178,13 @@ export default function SessionScreen() {
       />
 
       <RestTimerOverlay timer={timer} adjustStep={adjustStep} onAdjust={adjust} onDismiss={dismiss} />
-    </ScrollView>
+    </View>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.background },
     container: { flex: 1, backgroundColor: colors.background },
     scrollContent: { padding: 16, gap: 12, paddingBottom: 40 },
     emptyText: { textAlign: "center", color: colors.textMuted, marginTop: 20 },

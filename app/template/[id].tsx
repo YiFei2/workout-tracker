@@ -100,8 +100,9 @@ export default function TemplateDetailScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <Stack.Screen options={{ title: template.name }} />
+    <View style={styles.screen}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+        <Stack.Screen options={{ title: template.name }} />
 
       <View style={styles.header}>
         <Pressable onPress={() => setRenaming(true)}>
@@ -165,6 +166,7 @@ export default function TemplateDetailScreen() {
       <Pressable style={styles.addButton} onPress={() => setAddingExercise(true)}>
         <Text style={styles.addButtonText}>+ Add Exercise</Text>
       </Pressable>
+      </ScrollView>
 
       <NamePromptModal
         visible={renaming}
@@ -198,12 +200,13 @@ export default function TemplateDetailScreen() {
         onCancel={() => setEditingExercise(null)}
         onSubmit={handleEditExercise}
       />
-    </ScrollView>
+    </View>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.background },
     container: { flex: 1, backgroundColor: colors.background },
     scrollContent: { padding: 16, gap: 12, paddingBottom: 40 },
     header: {

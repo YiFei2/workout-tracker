@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { OverlayModal } from "./OverlayModal";
 import { useTheme } from "../contexts/ThemeContext";
 import type { ThemeColors } from "../lib/theme";
 
@@ -41,10 +42,10 @@ export function NamePromptModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+    <OverlayModal visible={visible} onRequestClose={onCancel}>
       <KeyboardAvoidingView
         style={styles.backdrop}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <View style={styles.card}>
           <Text style={styles.title}>{title}</Text>
@@ -68,7 +69,7 @@ export function NamePromptModal({
           </View>
         </View>
       </KeyboardAvoidingView>
-    </Modal>
+    </OverlayModal>
   );
 }
 
@@ -76,9 +77,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     backdrop: {
       flex: 1,
-      backgroundColor: colors.overlay,
       justifyContent: "center",
-      padding: 24,
     },
     card: {
       backgroundColor: colors.surface,
