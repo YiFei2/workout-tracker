@@ -4,10 +4,10 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 
 import { ExerciseFormModal, type ExerciseFormValues } from "../../components/ExerciseFormModal";
 import { NamePromptModal } from "../../components/NamePromptModal";
-import { SetFormModal, type SetFormValues } from "../../components/SetFormModal";
+import { SetRow } from "../../components/SetRow";
 import { deleteTemplate, startSessionFromTemplate } from "../../db";
 import { useTemplate } from "../../hooks/useTemplate";
-import type { TemplateExercise, TemplateSet } from "../../types";
+import type { TemplateExercise } from "../../types";
 
 export default function TemplateDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,8 +27,6 @@ export default function TemplateDetailScreen() {
   const [renaming, setRenaming] = useState(false);
   const [addingExercise, setAddingExercise] = useState(false);
   const [editingExercise, setEditingExercise] = useState<TemplateExercise | null>(null);
-  const [addingSetFor, setAddingSetFor] = useState<TemplateExercise | null>(null);
-  const [editingSet, setEditingSet] = useState<TemplateSet | null>(null);
   const [starting, setStarting] = useState(false);
 
   if (loading && !template) {
@@ -81,20 +79,9 @@ export default function TemplateDetailScreen() {
     await updateExercise(editingExercise.id, values);
   };
 
-  const handleAddSet = async (values: SetFormValues) => {
-    if (!addingSetFor) {
-      return;
-    }
-    setAddingSetFor(null);
-    await addSet(addingSetFor.id, values);
-  };
-
-  const handleEditSet = async (values: SetFormValues) => {
-    if (!editingSet) {
-      return;
-    }
-    setEditingSet(null);
-    await updateSet(editingSet.id, values);
+  const handleAddSet = (exercise: TemplateExercise) => {
+    const lastSet = exercise.sets[exercise.sets.length - 1];
+    addSet(exercise.id, { reps: lastSet?.reps ?? 10, weight: lastSet?.weight ?? 0 });
   };
 
   const handleStartWorkout = async () => {
@@ -151,25 +138,17 @@ export default function TemplateDetailScreen() {
             </View>
 
             {exercise.sets.map((set, index) => (
-              <Pressable
+              <SetRow
                 key={set.id}
-                style={styles.setRow}
-                onPress={() => setEditingSet(set)}
-              >
-                <Text style={styles.setText}>
-                  Set {index + 1}: {set.reps} reps @ {set.weight}kg
-                </Text>
-                <Pressable
-                  style={styles.removeButton}
-                  onPress={() => removeSet(set.id)}
-                  hitSlop={8}
-                >
-                  <Text style={styles.removeButtonText}>✕</Text>
-                </Pressable>
-              </Pressable>
+                index={index}
+                reps={set.reps}
+                weight={set.weight}
+                onUpdate={(patch) => updateSet(set.id, patch)}
+                onRemove={() => removeSet(set.id)}
+              />
             ))}
 
-            <Pressable style={styles.addSetButton} onPress={() => setAddingSetFor(exercise)}>
+            <Pressable style={styles.addSetButton} onPress={() => handleAddSet(exercise)}>
               <Text style={styles.addSetButtonText}>+ Add Set</Text>
             </Pressable>
           </View>
@@ -211,23 +190,6 @@ export default function TemplateDetailScreen() {
         }
         onCancel={() => setEditingExercise(null)}
         onSubmit={handleEditExercise}
-      />
-
-      <SetFormModal
-        visible={addingSetFor !== null}
-        title="Add Set"
-        submitLabel="Add"
-        onCancel={() => setAddingSetFor(null)}
-        onSubmit={handleAddSet}
-      />
-
-      <SetFormModal
-        visible={editingSet !== null}
-        title="Edit Set"
-        submitLabel="Save"
-        initialValues={editingSet ? { reps: editingSet.reps, weight: editingSet.weight } : undefined}
-        onCancel={() => setEditingSet(null)}
-        onSubmit={handleEditSet}
       />
     </ScrollView>
   );
@@ -273,16 +235,6 @@ const styles = StyleSheet.create({
   exerciseTitleArea: { flex: 1 },
   exerciseName: { fontSize: 16, fontWeight: "600" },
   exerciseRest: { fontSize: 12, color: "#666", marginTop: 2 },
-  setRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "white",
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  setText: { fontSize: 14 },
   removeButton: {
     paddingHorizontal: 8,
     paddingVertical: 4,

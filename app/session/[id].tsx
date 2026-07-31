@@ -1,95 +1,13 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { ExerciseFormModal, type ExerciseFormValues } from "../../components/ExerciseFormModal";
 import { RestTimerOverlay } from "../../components/RestTimerOverlay";
+import { SetRow } from "../../components/SetRow";
 import { useRestTimer } from "../../hooks/useRestTimer";
 import { useSession } from "../../hooks/useSession";
 import type { LoggedExercise, WorkoutSet } from "../../types";
-
-interface SetRowProps {
-  set: WorkoutSet;
-  index: number;
-  readOnly: boolean;
-  onToggleCompleted: () => void;
-  onUpdate: (patch: { reps?: number; weight?: number }) => void;
-  onRemove: () => void;
-}
-
-function SetRow({ set, index, readOnly, onToggleCompleted, onUpdate, onRemove }: SetRowProps) {
-  const [reps, setReps] = useState(String(set.reps));
-  const [weight, setWeight] = useState(String(set.weight));
-
-  useEffect(() => {
-    setReps(String(set.reps));
-  }, [set.reps]);
-
-  useEffect(() => {
-    setWeight(String(set.weight));
-  }, [set.weight]);
-
-  const commitReps = () => {
-    const parsed = Number(reps);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      onUpdate({ reps: parsed });
-    } else {
-      setReps(String(set.reps));
-    }
-  };
-
-  const commitWeight = () => {
-    const parsed = Number(weight);
-    if (Number.isFinite(parsed) && parsed >= 0) {
-      onUpdate({ weight: parsed });
-    } else {
-      setWeight(String(set.weight));
-    }
-  };
-
-  if (readOnly) {
-    return (
-      <View style={styles.setRow}>
-        <Text style={styles.setLabel}>Set {index + 1}</Text>
-        <Text style={styles.setReadOnlyText}>
-          {set.reps} reps @ {set.weight}kg
-        </Text>
-        <Text style={styles.setReadOnlyText}>{set.completed ? "Done" : "—"}</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.setRow}>
-      <Text style={styles.setLabel}>Set {index + 1}</Text>
-      <TextInput
-        style={styles.setInput}
-        value={reps}
-        onChangeText={setReps}
-        onEndEditing={commitReps}
-        keyboardType="numeric"
-      />
-      <TextInput
-        style={styles.setInput}
-        value={weight}
-        onChangeText={setWeight}
-        onEndEditing={commitWeight}
-        keyboardType="numeric"
-      />
-      <Pressable
-        style={[styles.doneButton, set.completed && styles.doneButtonActive]}
-        onPress={onToggleCompleted}
-      >
-        <Text style={[styles.doneButtonText, set.completed && styles.doneButtonTextActive]}>
-          {set.completed ? "✓" : "Done"}
-        </Text>
-      </Pressable>
-      <Pressable style={styles.removeButton} onPress={onRemove} hitSlop={8}>
-        <Text style={styles.removeButtonText}>✕</Text>
-      </Pressable>
-    </View>
-  );
-}
 
 export default function SessionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -204,8 +122,10 @@ export default function SessionScreen() {
             {exercise.sets.map((set, index) => (
               <SetRow
                 key={set.id}
-                set={set}
                 index={index}
+                reps={set.reps}
+                weight={set.weight}
+                completed={set.completed}
                 readOnly={readOnly}
                 onToggleCompleted={() => handleToggleCompleted(exercise, set)}
                 onUpdate={(patch) => updateSet(set.id, patch)}
@@ -270,36 +190,6 @@ const styles = StyleSheet.create({
   exerciseTitleArea: { flex: 1 },
   exerciseName: { fontSize: 16, fontWeight: "600" },
   exerciseRest: { fontSize: 12, color: "#666", marginTop: 2 },
-  setRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "white",
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  setLabel: { width: 48, fontSize: 13, color: "#666" },
-  setReadOnlyText: { fontSize: 14 },
-  setInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    fontSize: 14,
-    textAlign: "center",
-  },
-  doneButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    backgroundColor: "#e5e7eb",
-  },
-  doneButtonActive: { backgroundColor: "#16a34a" },
-  doneButtonText: { fontSize: 13, fontWeight: "600", color: "#333" },
-  doneButtonTextActive: { color: "white" },
   removeButton: {
     paddingHorizontal: 6,
     paddingVertical: 4,
