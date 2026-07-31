@@ -4,7 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 
 import { ExerciseFormModal, type ExerciseFormValues } from "../../components/ExerciseFormModal";
 import { RestTimerOverlay } from "../../components/RestTimerOverlay";
-import { SetRow } from "../../components/SetRow";
+import { SetRow, SetRowHeader } from "../../components/SetRow";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useRestTimer } from "../../hooks/useRestTimer";
 import { useSession } from "../../hooks/useSession";
@@ -123,6 +123,8 @@ export default function SessionScreen() {
                 </Pressable>
               )}
             </View>
+
+            {exercise.sets.length > 0 && <SetRowHeader showCompletedColumn={!readOnly} />}
 
             {exercise.sets.map((set, index) => (
               <SetRow

@@ -4,7 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 
 import { ExerciseFormModal, type ExerciseFormValues } from "../../components/ExerciseFormModal";
 import { NamePromptModal } from "../../components/NamePromptModal";
-import { SetRow } from "../../components/SetRow";
+import { SetRow, SetRowHeader } from "../../components/SetRow";
 import { useTheme } from "../../contexts/ThemeContext";
 import { deleteTemplate, startSessionFromTemplate } from "../../db";
 import { useTemplate } from "../../hooks/useTemplate";
@@ -141,6 +141,8 @@ export default function TemplateDetailScreen() {
                 <Text style={styles.removeButtonText}>✕</Text>
               </Pressable>
             </View>
+
+            {exercise.sets.length > 0 && <SetRowHeader />}
 
             {exercise.sets.map((set, index) => (
               <SetRow

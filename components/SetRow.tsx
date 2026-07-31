@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { useTheme } from "../contexts/ThemeContext";
+import { useWeightUnit } from "../contexts/UnitContext";
+import { kgToUnit, unitToKg } from "../lib/units";
 import type { ThemeColors } from "../lib/theme";
 
 export interface SetRowValues {
@@ -12,19 +14,41 @@ export interface SetRowValues {
 interface Props {
   index: number;
   reps: number;
+  /** Canonical weight in kg, as stored in the DB. */
   weight: number;
   /** Omit for entities with no completion concept (e.g. template sets). */
   completed?: boolean;
   readOnly?: boolean;
+  /** `weight` in the patch is always canonical kg. */
   onUpdate: (patch: Partial<SetRowValues>) => void;
   onToggleCompleted?: () => void;
   onRemove: () => void;
 }
 
+interface HeaderProps {
+  showCompletedColumn?: boolean;
+}
+
+export function SetRowHeader({ showCompletedColumn = false }: HeaderProps) {
+  const { colors } = useTheme();
+  const { unit } = useWeightUnit();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  return (
+    <View style={styles.headerRow}>
+      <Text style={[styles.setLabel, styles.headerLabel]}>Set</Text>
+      <Text style={[styles.headerColumn, styles.headerLabel]}>Reps</Text>
+      <Text style={[styles.headerColumn, styles.headerLabel]}>Weight ({unit})</Text>
+      {showCompletedColumn ? <View style={styles.headerDoneSpacer} /> : null}
+      <View style={styles.headerRemoveSpacer} />
+    </View>
+  );
+}
+
 export function SetRow({
   index,
   reps: repsValue,
-  weight: weightValue,
+  weight: weightKg,
   completed,
   readOnly = false,
   onUpdate,
@@ -32,18 +56,19 @@ export function SetRow({
   onRemove,
 }: Props) {
   const { colors } = useTheme();
+  const { unit } = useWeightUnit();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [reps, setReps] = useState(String(repsValue));
-  const [weight, setWeight] = useState(String(weightValue));
+  const [weight, setWeight] = useState(String(kgToUnit(weightKg, unit)));
 
   useEffect(() => {
     setReps(String(repsValue));
   }, [repsValue]);
 
   useEffect(() => {
-    setWeight(String(weightValue));
-  }, [weightValue]);
+    setWeight(String(kgToUnit(weightKg, unit)));
+  }, [weightKg, unit]);
 
   const commitReps = () => {
     const parsed = Number(reps);
@@ -57,9 +82,9 @@ export function SetRow({
   const commitWeight = () => {
     const parsed = Number(weight);
     if (Number.isFinite(parsed) && parsed >= 0) {
-      onUpdate({ weight: parsed });
+      onUpdate({ weight: unitToKg(parsed, unit) });
     } else {
-      setWeight(String(weightValue));
+      setWeight(String(kgToUnit(weightKg, unit)));
     }
   };
 
@@ -68,7 +93,8 @@ export function SetRow({
       <View style={styles.setRow}>
         <Text style={styles.setLabel}>Set {index + 1}</Text>
         <Text style={styles.setReadOnlyText}>
-          {repsValue} reps @ {weightValue}kg
+          {repsValue} reps @ {kgToUnit(weightKg, unit)}
+          {unit}
         </Text>
         {completed !== undefined ? (
           <Text style={styles.setReadOnlyText}>{completed ? "Done" : "—"}</Text>
@@ -151,5 +177,20 @@ function createStyles(colors: ThemeColors) {
       paddingVertical: 4,
     },
     removeButtonText: { color: colors.textMuted, fontSize: 16 },
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingHorizontal: 12,
+    },
+    headerColumn: { flex: 1, textAlign: "center" },
+    headerLabel: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.textMuted,
+      textTransform: "uppercase",
+    },
+    headerDoneSpacer: { width: 56 },
+    headerRemoveSpacer: { width: 24 },
   });
 }
