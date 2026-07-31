@@ -84,9 +84,9 @@ export default function TemplateDetailScreen() {
     await updateExercise(editingExercise.id, values);
   };
 
-  const handleAddSet = (exercise: TemplateExercise) => {
+  const handleAddSet = async (exercise: TemplateExercise) => {
     const lastSet = exercise.sets[exercise.sets.length - 1];
-    addSet(exercise.id, { reps: lastSet?.reps ?? 10, weight: lastSet?.weight ?? 0 });
+    await addSet(exercise.id, { reps: lastSet?.reps ?? 10, weight: lastSet?.weight ?? 0 });
   };
 
   const handleStartWorkout = async () => {
