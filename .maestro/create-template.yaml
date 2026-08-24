@@ -1,0 +1,27 @@
+appId: com.anonymous.workouttracker
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Templates"
+- assertVisible: "No templates yet — create one to get started."
+
+- tapOn: "+ New Template"
+- inputText: "Push Day"
+- tapOn: "Create"
+- assertVisible: "Push Day"
+
+- tapOn: "Push Day"
+- assertVisible: "Tap to rename"
+
+- tapOn: "+ Add Exercise"
+- tapOn: "e.g. Bench Press"
+- inputText: "Bench Press"
+- tapOn: "e.g. 90"
+- eraseText
+- inputText: "90"
+- tapOn: "Add"
+- assertVisible: "Bench Press"
+- assertVisible: "Rest: 90s"
+
+- tapOn: "+ Add Set"
+- assertVisible: "10"

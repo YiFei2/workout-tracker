@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# e2e test recordings (regenerated per run, not for version control — see .maestro/recordings/README.md)
+/.maestro/recordings/*.mp4
