@@ -1,0 +1,135 @@
+appId: com.anonymous.workouttracker
+---
+- launchApp:
+    clearState: true
+
+# --- Manage Exercise Groups: empty state, create group, add/remove members, rename ---
+- tapOn: "Settings"
+- tapOn: "Manage Exercise Groups"
+- assertVisible: "No groups yet — create one to link interchangeable exercises (e.g. Barbell Bench, Dumbbell Bench, Machine Chest Press) so you can swap between them smoothly."
+
+- tapOn: "+ New Group"
+- tapOn: "Name"
+- inputText: "Chest Press"
+- tapOn: "Create"
+- assertVisible: "Chest Press"
+- assertVisible: "0 exercises"
+
+- tapOn: "Chest Press"
+- assertVisible: "No exercises yet — add the interchangeable variants (e.g. Barbell Bench, Dumbbell Bench, Machine Chest Press) below."
+
+- tapOn: "+ Add Exercise"
+- tapOn: "Name"
+- inputText: "Barbell Bench"
+- tapOn: "Add"
+- assertVisible: "Barbell Bench"
+
+- tapOn: "+ Add Exercise"
+- tapOn: "Name"
+- inputText: "Dumbbell Bench"
+- tapOn: "Add"
+- assertVisible: "Dumbbell Bench"
+
+# Rename the group
+- tapOn: "Tap to rename"
+- assertVisible: "Rename Group"
+- tapOn: "Chest Press"
+- eraseText
+- inputText: "Chest Group"
+- tapOn: "Save"
+- assertVisible: "Chest Group"
+
+- back
+- assertVisible: "Chest Group"
+- assertVisible: "2 exercises"
+
+# Exercise Groups is a stack screen outside the tab group, so the bottom tab
+# bar is hidden here — back out to Settings first before switching tabs.
+- back
+- assertVisible: "Manage Exercise Groups"
+
+# --- Link a TemplateExercise slot to the group ---
+- tapOn: "Templates"
+- tapOn: "+ New Template"
+- inputText: "Push Day"
+- tapOn: "Create"
+- tapOn: "Push Day"
+
+- tapOn: "+ Add Exercise"
+- tapOn: "e.g. Bench Press"
+- inputText: "Incline Press"
+- tapOn: "Add"
+- assertVisible: "Incline Press"
+
+- tapOn: "+ Link substitution group"
+- assertVisible: "Link substitution group"
+- tapOn: "Chest Group"
+- assertVisible: "Substitutes: Chest Group"
+- assertVisible: "Barbell Bench"
+
+# Change to a different member
+- tapOn: "Change"
+- assertVisible: "Choose default exercise"
+- tapOn: "Dumbbell Bench"
+- assertVisible: "Dumbbell Bench"
+- assertVisible: "Substitutes: Chest Group"
+
+# Unlink reverts to a plain exercise
+- tapOn: "Unlink"
+- assertVisible: "Unlink group"
+- tapOn: "Unlink"
+- assertNotVisible: "Substitutes: Chest Group"
+- assertVisible: "+ Link substitution group"
+
+# Re-link for the session test below
+- tapOn: "+ Link substitution group"
+- tapOn: "Chest Group"
+- assertVisible: "Substitutes: Chest Group"
+- assertVisible: "Barbell Bench"
+
+# --- Starting a session shows the Swap action ---
+- tapOn: "Start Workout"
+- assertVisible: "⇄ Swap"
+- assertVisible: "Barbell Bench"
+
+# Add a second set so we can confirm swap resets the exercise to one blank set
+- tapOn: "+ Add Set"
+- assertVisible: "Set 2"
+
+- tapOn: "⇄ Swap"
+- assertVisible: "Swap Exercise"
+- tapOn: "Dumbbell Bench"
+- assertVisible: "Dumbbell Bench"
+- assertVisible: "Set 1"
+- assertNotVisible: "Set 2"
+
+- tapOn: "Discard"
+- tapOn: "Discard"
+
+# Discarding pops back to the template detail screen (still outside the tab
+# group / no tab bar) — back out once more to the Templates list before
+# switching tabs.
+- back
+- assertVisible: "Templates"
+
+# --- Edge case: deleting a group unlinks templates, keeping current exercise name as plain text ---
+- tapOn: "Settings"
+- tapOn: "Manage Exercise Groups"
+- tapOn: "Chest Group"
+- tapOn: "Delete Group"
+- assertVisible: "Delete group"
+- tapOn: "Delete"
+
+# Deleting pops back to the Exercise Groups list — still outside the tab
+# group, so back out once more before switching tabs.
+- back
+- assertVisible: "Manage Exercise Groups"
+
+# Template's own exercise name is unaffected by the session-only swap above —
+# it was linked as "Barbell Bench" (the group's first member) and stays that
+# way as plain text once the group is gone.
+- tapOn: "Templates"
+- tapOn: "Push Day"
+- assertVisible: "Barbell Bench"
+- assertNotVisible: "Substitutes:"
+- assertVisible: "+ Link substitution group"

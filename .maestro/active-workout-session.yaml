@@ -1,0 +1,142 @@
+appId: com.anonymous.workouttracker
+---
+# --- Set up a template with one exercise + one set, to start a session from ---
+- launchApp:
+    clearState: true
+- assertVisible: "Templates"
+- assertVisible: "No templates yet — create one to get started."
+
+- tapOn: "+ New Template"
+- inputText: "E2E Session Template"
+- tapOn: "Create"
+- assertVisible: "Tap to rename"
+
+- tapOn: "+ Add Exercise"
+- tapOn: "e.g. Bench Press"
+- inputText: "Bench Press"
+- tapOn: "e.g. 90"
+- eraseText
+- inputText: "5"
+- tapOn: "Add"
+- assertVisible: "Bench Press"
+- assertVisible: "Rest: 5s"
+- assertVisible: "10"
+
+# ================= SESSION 1: started from template =================
+- tapOn: "Start Workout"
+- assertVisible: "Bench Press"
+- assertVisible: "Rest: 5s"
+- assertVisible: "Complete Workout"
+- assertVisible: "Discard"
+
+# --- Edit weight/reps inline on Bench Press's set ---
+# (longPressOn selects the whole numeric value so eraseText clears it fully;
+# a plain tapOn only places the cursor mid-text and eraseText then only
+# removes one character, e.g. "10" -> "0" -> typing "8" gives "80".)
+- longPressOn: "10"
+- eraseText
+- inputText: "8"
+- tapOn: "Bench Press"
+- assertVisible: "8"
+
+- longPressOn: "0"
+- eraseText
+- inputText: "45"
+- tapOn: "Bench Press"
+- assertVisible: "45"
+
+# --- Mark the set completed: starts the rest timer using restSeconds (5s) ---
+- tapOn: "Done"
+- assertVisible: "Resting — Bench Press"
+- assertVisible: "-15s"
+- assertVisible: "+15s"
+
+# --- Adjust the timer +/-15s (add a buffer with the extra +15s first so the
+#     -15s can't push secondsLeft to 0 and auto-dismiss the timer) ---
+- tapOn: "+15s"
+- tapOn: "+15s"
+- tapOn: "-15s"
+- assertVisible: "Resting — Bench Press"
+
+# --- Skip the rest timer early ---
+- tapOn: "Skip"
+- assertNotVisible: "Resting — Bench Press"
+
+# --- Add a set (copies last set's values) then remove it ---
+# ✕ elements in order: [Bench Press header(0), Set1(1), Set2(2)]
+- tapOn: "+ Add Set"
+- assertVisible: "Set 2"
+- tapOn:
+    text: "✕"
+    index: 2
+- assertNotVisible: "Set 2"
+
+# --- Discard the session: cancel without saving ---
+- tapOn: "Discard"
+- assertVisible: "Discard workout"
+- tapOn: "Discard"
+- assertVisible: "Tap to rename"
+
+# --- Back to the Templates tab list, so the tab bar (hidden on the pushed
+#     template detail screen) is visible again ---
+- back
+- assertVisible: "Templates"
+
+# ================= SESSION 2: started blank, completed =================
+- tapOn: "History"
+- assertVisible: "No completed workouts yet."
+
+- tapOn: "+ Start Blank Workout"
+- assertVisible: "No exercises yet — add one below."
+
+# --- Add an exercise to the session, with no rest duration set ---
+- tapOn: "+ Add Exercise"
+- tapOn: "e.g. Bench Press"
+- inputText: "Leg Press"
+- tapOn: "e.g. 90"
+- eraseText
+- tapOn: "Add"
+- assertVisible: "Leg Press"
+- assertVisible: "No rest set"
+
+# --- Remove that exercise from the session (only exercise present, so its
+#     header ✕ is the first of the two ✕ elements: header(0), its set(1)) ---
+- tapOn:
+    text: "✕"
+    index: 0
+- assertVisible: "Remove exercise"
+- assertVisible: ".*Remove \"Leg Press\" from this session.*"
+- tapOn: "Remove"
+- assertNotVisible: "Leg Press"
+- assertVisible: "No exercises yet — add one below."
+
+- tapOn: "+ Add Exercise"
+- tapOn: "e.g. Bench Press"
+- inputText: "Deadlift"
+- tapOn: "Add"
+- assertVisible: "Deadlift"
+- assertVisible: "Rest: 90s"
+- assertVisible: "10"
+
+# --- Mark the default set completed, starts a 90s rest timer, then skip it ---
+- tapOn: "Done"
+- assertVisible: "Resting — Deadlift"
+- tapOn: "Skip"
+- assertNotVisible: "Resting — Deadlift"
+
+# --- Complete workout: saves with completedAt ---
+- tapOn: "Complete Workout"
+- assertVisible: "Complete workout"
+- tapOn: "Complete"
+
+# --- Back on History: the completed session is listed ---
+- assertVisible: ".*1 exercise.*"
+- assertVisible: ".*1 sets completed.*"
+
+# --- Open it back up: it's read-only ---
+- tapOn: ".*1 exercise.*"
+- assertVisible: "Deadlift"
+- assertVisible: "Rest: 90s"
+- assertVisible: "✓"
+- assertNotVisible: "Complete Workout"
+- assertNotVisible: "Discard"

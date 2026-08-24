@@ -1,0 +1,80 @@
+appId: com.anonymous.workouttracker
+---
+- launchApp:
+    clearState: true
+
+# --- Manage Locations: empty state, add, rename ---
+- tapOn: "Settings"
+- assertVisible: "Manage Locations"
+- tapOn: "Manage Locations"
+- assertVisible: "No locations yet — add a gym to start tracking weights separately per location."
+
+- tapOn: "+ Add Location"
+- tapOn: "Name"
+- inputText: "Home Gym"
+- tapOn: "Add"
+- assertVisible: "Home Gym"
+
+- tapOn: "+ Add Location"
+- tapOn: "Name"
+- inputText: "Garage Gym"
+- tapOn: "Add"
+- assertVisible: "Garage Gym"
+
+# Rename "Home Gym" -> "Downtown Gym"
+- tapOn: "Home Gym"
+- assertVisible: "Rename Location"
+- tapOn: "Home Gym"
+- eraseText
+- inputText: "Downtown Gym"
+- tapOn: "Save"
+- assertVisible: "Downtown Gym"
+- assertNotVisible: "Home Gym"
+
+- back
+
+# --- Set a session's location from the session screen ---
+# (the location row renders as "📍 {name or 'Set location'}" in one Text node,
+# so match the literal pin-prefixed string rather than the bare name)
+- tapOn: "History"
+- tapOn: "+ Start Blank Workout"
+- assertVisible: "📍 Set location"
+- tapOn: "📍 Set location"
+- assertVisible: "Session Location"
+- assertVisible: "No location"
+- assertVisible: "Downtown Gym"
+- assertVisible: "Garage Gym"
+- tapOn: "Downtown Gym"
+- assertVisible: "📍 Downtown Gym"
+- assertNotVisible: "📍 Set location"
+
+# Change it to a different location
+- tapOn: "📍 Downtown Gym"
+- assertVisible: "Session Location"
+- tapOn: "Garage Gym"
+- assertVisible: "📍 Garage Gym"
+
+- tapOn: "Complete Workout"
+- tapOn: "Complete"
+
+# --- History shows the location name on the session row ---
+# (row subtitle is one Text node "<date> · N exercises · N sets completed · <location>")
+- tapOn: "History"
+- assertVisible: ".*Garage Gym.*"
+
+# --- Edge case: deleting a location clears the tag but leaves session data ---
+- tapOn: "Settings"
+- tapOn: "Manage Locations"
+- assertVisible: "Downtown Gym"
+- assertVisible: "Garage Gym"
+- tapOn:
+    text: "✕"
+    below: "Downtown Gym"
+- assertVisible: "Delete location"
+- tapOn: "Delete"
+- assertNotVisible: "Garage Gym"
+
+- back
+- tapOn: "History"
+- assertVisible: ".*sets completed.*"
+- assertNotVisible: ".*Garage Gym.*"

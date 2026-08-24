@@ -1,0 +1,56 @@
+appId: com.anonymous.workouttracker
+---
+- launchApp:
+    clearState: true
+
+# Start from Templates tab, go to History
+- assertVisible: "Templates"
+- tapOn: "History"
+- assertVisible: "No completed workouts yet."
+
+# Start a blank workout session
+- tapOn: "+ Start Blank Workout"
+- assertVisible: "No exercises yet — add one below."
+
+# Add an exercise
+- tapOn: "+ Add Exercise"
+- tapOn: "e.g. Bench Press"
+- inputText: "Bench Press"
+- tapOn: "Add"
+- assertVisible: "Bench Press"
+- assertVisible: "Rest: 90s"
+
+# Adding an exercise auto-creates one default set (Set 1) — mark it completed
+- assertVisible: "Set 1"
+- tapOn: "Done"
+- assertVisible: "Skip"
+- tapOn: "Skip"
+
+# Complete the workout
+- tapOn: "Complete Workout"
+- assertVisible: "Save this workout to history?"
+- tapOn: "Complete"
+
+# Back on History tab: verify the new row (row text is "<date> · 1 exercise · 1 sets completed")
+- assertVisible: "History"
+- assertVisible: ".*1 exercise.*1 sets completed.*"
+
+# Tap into the session to view read-only detail
+- tapOn: ".*1 exercise.*1 sets completed.*"
+- assertVisible: "Bench Press"
+- assertVisible: "Rest: 90s"
+- assertVisible: "Set 1"
+- assertNotVisible: "Complete Workout"
+- assertNotVisible: "+ Add Exercise"
+- assertNotVisible: "+ Add Set"
+
+# Go back to history list
+- back
+- assertVisible: "History"
+- assertVisible: ".*1 exercise.*1 sets completed.*"
+
+# Delete the session from history
+- tapOn: "✕"
+- assertVisible: "Delete session"
+- tapOn: "Delete"
+- assertVisible: "No completed workouts yet."
