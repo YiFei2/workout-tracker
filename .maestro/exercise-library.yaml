@@ -1,0 +1,54 @@
+appId: com.anonymous.workouttracker
+---
+# Covers the exercise library itself: seeded sample templates/exercises on
+# fresh install, search filtering in the picker, inline "add new" creating a
+# custom exercise, and that re-adding the same name reuses it (find-or-create
+# dedup) rather than creating a duplicate entry.
+- launchApp:
+    clearState: true
+
+# --- Fresh install seeds sample templates (Push Day, Pull Day, Leg Day, Full Body) ---
+- assertVisible: "Templates"
+- assertVisible: "Push Day"
+- assertVisible: "Pull Day"
+- assertVisible: "Leg Day"
+- assertVisible: "Full Body"
+
+# --- Seeded template already has real exercises from the library ---
+- tapOn: "Push Day"
+- assertVisible: "Barbell Bench Press"
+- assertVisible: "Overhead Press"
+
+# --- Search filters the library by name ---
+- tapOn: "+ Add Exercise"
+- tapOn: "Tap to choose an exercise"
+- tapOn: "Search exercises…"
+- inputText: "squat"
+- assertVisible: "Back Squat"
+- assertVisible: "Front Squat"
+
+# --- No exact match: inline "add new" row appears alongside any partial matches ---
+- eraseText
+- inputText: "My Custom Curl"
+- assertVisible: '.*Add "My Custom Curl" as new exercise.*'
+- tapOn: '.*Add "My Custom Curl" as new exercise.*'
+- tapOn: "^Add$"
+- assertVisible: "My Custom Curl"
+
+- back
+- assertVisible: "Push Day"
+
+# --- Re-adding the same custom exercise name elsewhere reuses it, not a duplicate ---
+- tapOn: "Pull Day"
+- scrollUntilVisible:
+    element: "+ Add Exercise"
+    direction: DOWN
+- tapOn: "+ Add Exercise"
+- tapOn: "Tap to choose an exercise"
+- tapOn: "Search exercises…"
+- inputText: "My Custom Curl"
+# Exact match now exists in the library, so the "add new" row must not appear.
+- assertNotVisible: '.*Add "My Custom Curl" as new exercise.*'
+- tapOn: "My Custom Curl"
+- tapOn: "^Add$"
+- assertVisible: "My Custom Curl"

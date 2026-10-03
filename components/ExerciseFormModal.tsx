@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { ExercisePickerModal } from "./ExercisePickerModal";
 import { OverlayModal } from "./OverlayModal";
 import { useTheme } from "../contexts/ThemeContext";
 import type { ThemeColors } from "../lib/theme";
+import type { Exercise } from "../types";
 
 export interface ExerciseFormValues {
+  exerciseId: string;
   exerciseName: string;
   restSeconds: number | null;
 }
@@ -20,6 +23,7 @@ interface Props {
 }
 
 const EMPTY_VALUES: ExerciseFormValues = {
+  exerciseId: "",
   exerciseName: "",
   restSeconds: 90,
 };
@@ -35,23 +39,31 @@ export function ExerciseFormModal({
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
+  const [exerciseId, setExerciseId] = useState("");
   const [exerciseName, setExerciseName] = useState("");
   const [restSeconds, setRestSeconds] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
 
   useEffect(() => {
     if (visible) {
       const values = initialValues ?? EMPTY_VALUES;
+      setExerciseId(values.exerciseId);
       setExerciseName(values.exerciseName);
       setRestSeconds(values.restSeconds === null ? "" : String(values.restSeconds));
       setError(null);
     }
   }, [visible, initialValues]);
 
+  const handlePickExercise = (exercise: Exercise) => {
+    setPicking(false);
+    setExerciseId(exercise.id);
+    setExerciseName(exercise.name);
+  };
+
   const handleSubmit = () => {
-    const trimmedName = exerciseName.trim();
-    if (!trimmedName) {
-      setError("Exercise name is required");
+    if (!exerciseId) {
+      setError("Choose an exercise");
       return;
     }
 
@@ -65,7 +77,7 @@ export function ExerciseFormModal({
       restSecondsNum = parsed;
     }
 
-    onSubmit({ exerciseName: trimmedName, restSeconds: restSecondsNum });
+    onSubmit({ exerciseId, exerciseName, restSeconds: restSecondsNum });
   };
 
   return (
@@ -77,15 +89,12 @@ export function ExerciseFormModal({
         <View style={styles.card}>
           <Text style={styles.title}>{title}</Text>
 
-          <Text style={styles.label}>Exercise name</Text>
-          <TextInput
-            style={styles.input}
-            value={exerciseName}
-            onChangeText={setExerciseName}
-            placeholder="e.g. Bench Press"
-            placeholderTextColor={colors.textMuted}
-            autoFocus
-          />
+          <Text style={styles.label}>Exercise</Text>
+          <Pressable style={styles.pickerButton} onPress={() => setPicking(true)}>
+            <Text style={exerciseName ? styles.pickerButtonText : styles.pickerButtonPlaceholder}>
+              {exerciseName || "Tap to choose an exercise"}
+            </Text>
+          </Pressable>
 
           <Text style={styles.label}>Rest between sets (seconds, optional)</Text>
           <TextInput
@@ -109,6 +118,13 @@ export function ExerciseFormModal({
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      <ExercisePickerModal
+        visible={picking}
+        selectedId={exerciseId}
+        onSelect={handlePickExercise}
+        onCancel={() => setPicking(false)}
+      />
     </OverlayModal>
   );
 }
@@ -142,6 +158,21 @@ function createStyles(colors: ThemeColors) {
       paddingVertical: 10,
       fontSize: 16,
       color: colors.text,
+    },
+    pickerButton: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    pickerButtonText: {
+      fontSize: 16,
+      color: colors.text,
+    },
+    pickerButtonPlaceholder: {
+      fontSize: 16,
+      color: colors.textMuted,
     },
     error: {
       color: colors.danger,

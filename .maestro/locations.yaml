@@ -36,17 +36,16 @@ appId: com.anonymous.workouttracker
 # --- Set a session's location from the session screen ---
 # (the location row renders as "📍 {name or 'Set location'}" in one Text node,
 # so match the literal pin-prefixed string rather than the bare name)
+# A location is now required before a blank session can even start (see
+# app/(tabs)/history.tsx's pre-start LocationPickerModal) — pick one of the
+# two already-created gyms (renamed to "Downtown Gym" above) there directly.
 - tapOn: "History"
 - tapOn: "+ Start Blank Workout"
-- assertVisible: "📍 Set location"
-- tapOn: "📍 Set location"
-- assertVisible: "Session Location"
-- assertVisible: "No location"
+- assertVisible: "Start Workout At"
 - assertVisible: "Downtown Gym"
 - assertVisible: "Garage Gym"
 - tapOn: "Downtown Gym"
 - assertVisible: "📍 Downtown Gym"
-- assertNotVisible: "📍 Set location"
 
 # Change it to a different location
 - tapOn: "📍 Downtown Gym"

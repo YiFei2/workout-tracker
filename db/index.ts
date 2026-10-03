@@ -7,3 +7,4 @@ export * from "./sessions";
 export * from "./settings";
 export * from "./locations";
 export * from "./exerciseGroups";
+export * from "./exercises";

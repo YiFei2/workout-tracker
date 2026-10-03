@@ -9,6 +9,9 @@ export interface WorkoutTemplate {
 export interface TemplateExercise {
   id: string;
   templateId: string;
+  /** The library Exercise this slot points at — see Exercise. */
+  exerciseId: string;
+  /** Snapshot of Exercise.name at the time it was picked; doesn't change retroactively if the exercise is later renamed. */
   exerciseName: string;
   order: number;
   restSeconds: number | null;
@@ -37,6 +40,9 @@ export interface WorkoutSession {
 export interface LoggedExercise {
   id: string;
   sessionId: string;
+  /** The library Exercise this log entry points at — see Exercise. */
+  exerciseId: string;
+  /** Snapshot of Exercise.name at the time it was picked/swapped; doesn't change retroactively if the exercise is later renamed. */
   exerciseName: string;
   order: number;
   restSeconds: number | null;
@@ -71,6 +77,14 @@ export interface ExerciseGroup {
 export interface ExerciseGroupMember {
   id: string;
   groupId: string;
+  exerciseId: string;
+  /** Exercise.name resolved live via join — group composition isn't a historical log, so this always reflects the exercise's current name. */
   exerciseName: string;
   order: number;
+}
+
+export interface Exercise {
+  id: string;
+  name: string;
+  createdAt: string;
 }

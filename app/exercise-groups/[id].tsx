@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { ExercisePickerModal } from "../../components/ExercisePickerModal";
 import { NamePromptModal } from "../../components/NamePromptModal";
 import { useTheme } from "../../contexts/ThemeContext";
 import { deleteExerciseGroup } from "../../db";
@@ -60,8 +61,18 @@ export default function ExerciseGroupDetailScreen() {
     ]);
   };
 
+  // While any modal is open, make the screen behind it inert to touch and
+  // accessibility tooling — see the matching comment in app/template/[id].tsx.
+  const anyModalOpen = renaming || addingMember;
+
   return (
     <View style={styles.screen}>
+      <View
+        style={styles.container}
+        pointerEvents={anyModalOpen ? "none" : "auto"}
+        importantForAccessibility={anyModalOpen ? "no-hide-descendants" : "auto"}
+        accessibilityElementsHidden={anyModalOpen}
+      >
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         <Stack.Screen options={{ title: group.name }} />
 
@@ -101,6 +112,7 @@ export default function ExerciseGroupDetailScreen() {
           <Text style={styles.addButtonText}>+ Add Exercise</Text>
         </Pressable>
       </ScrollView>
+      </View>
 
       <NamePromptModal
         visible={renaming}
@@ -114,15 +126,13 @@ export default function ExerciseGroupDetailScreen() {
         }}
       />
 
-      <NamePromptModal
+      <ExercisePickerModal
         visible={addingMember}
         title="Add Exercise"
-        initialValue=""
-        submitLabel="Add"
         onCancel={() => setAddingMember(false)}
-        onSubmit={async (name) => {
+        onSelect={async (exercise) => {
           setAddingMember(false);
-          await addMember(name);
+          await addMember(exercise.id);
         }}
       />
     </View>

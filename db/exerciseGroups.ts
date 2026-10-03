@@ -19,12 +19,23 @@ interface ExerciseGroupRow {
 interface ExerciseGroupMemberRow {
   id: string;
   group_id: string;
+  exercise_id: string;
   exercise_name: string;
   order_index: number;
 }
 
+const MEMBER_SELECT = `SELECT egm.id, egm.group_id, egm.exercise_id, e.name AS exercise_name, egm.order_index
+     FROM exercise_group_members egm
+     JOIN exercises e ON e.id = egm.exercise_id`;
+
 function toMember(row: ExerciseGroupMemberRow): ExerciseGroupMember {
-  return { id: row.id, groupId: row.group_id, exerciseName: row.exercise_name, order: row.order_index };
+  return {
+    id: row.id,
+    groupId: row.group_id,
+    exerciseId: row.exercise_id,
+    exerciseName: row.exercise_name,
+    order: row.order_index,
+  };
 }
 
 function toGroup(row: ExerciseGroupRow, members: ExerciseGroupMember[]): ExerciseGroup {
@@ -33,7 +44,7 @@ function toGroup(row: ExerciseGroupRow, members: ExerciseGroupMember[]): Exercis
 
 async function loadMembers(db: SQLiteDatabase, groupId: string): Promise<ExerciseGroupMember[]> {
   const rows = await db.getAllAsync<ExerciseGroupMemberRow>(
-    "SELECT * FROM exercise_group_members WHERE group_id = ? ORDER BY order_index ASC",
+    `${MEMBER_SELECT} WHERE egm.group_id = ? ORDER BY egm.order_index ASC`,
     groupId,
   );
   return rows.map(toMember);
@@ -45,7 +56,7 @@ export async function listExerciseGroups(): Promise<ExerciseGroup[]> {
     "SELECT * FROM exercise_groups ORDER BY name ASC",
   );
   const memberRows = await db.getAllAsync<ExerciseGroupMemberRow>(
-    "SELECT * FROM exercise_group_members ORDER BY order_index ASC",
+    `${MEMBER_SELECT} ORDER BY egm.order_index ASC`,
   );
   const membersByGroup = new Map<string, ExerciseGroupMember[]>();
   for (const memberRow of memberRows) {
@@ -100,7 +111,7 @@ export async function deleteExerciseGroup(id: string): Promise<void> {
 
 export async function addExerciseGroupMember(
   groupId: string,
-  exerciseName: string,
+  exerciseId: string,
 ): Promise<ExerciseGroupMember> {
   const db = await getDb();
   const id = generateId();
@@ -110,13 +121,17 @@ export async function addExerciseGroupMember(
   );
   const order = (maxOrderRow?.max_order ?? -1) + 1;
   await db.runAsync(
-    "INSERT INTO exercise_group_members (id, group_id, exercise_name, order_index) VALUES (?, ?, ?, ?)",
+    "INSERT INTO exercise_group_members (id, group_id, exercise_id, order_index) VALUES (?, ?, ?, ?)",
     id,
     groupId,
-    exerciseName,
+    exerciseId,
     order,
   );
-  return { id, groupId, exerciseName, order };
+  const exerciseRow = await db.getFirstAsync<{ name: string }>(
+    "SELECT name FROM exercises WHERE id = ?",
+    exerciseId,
+  );
+  return { id, groupId, exerciseId, exerciseName: exerciseRow?.name ?? "", order };
 }
 
 export async function removeExerciseGroupMember(id: string): Promise<void> {

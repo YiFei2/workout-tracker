@@ -1,27 +1,31 @@
 appId: com.anonymous.workouttracker
 ---
+# The exercise library seeds a curated list of exercises plus four sample
+# templates (Push Day, Pull Day, Leg Day, Full Body) on fresh install, so
+# the Templates list is never actually empty after clearState — and this
+# test's own template is named distinctly ("QA Push Template") to avoid any
+# ambiguity against the seeded "Push Day".
 - launchApp:
     clearState: true
 - assertVisible: "Templates"
-- assertVisible: "No templates yet — create one to get started."
-
-- tapOn: "+ New Template"
-- inputText: "Push Day"
-- tapOn: "Create"
 - assertVisible: "Push Day"
 
-- tapOn: "Push Day"
+- tapOn: "+ New Template"
+- inputText: "QA Push Template"
+- tapOn: "Create"
+- assertVisible: "QA Push Template"
+
+- tapOn: "QA Push Template"
 - assertVisible: "Tap to rename"
 
 - tapOn: "+ Add Exercise"
-- tapOn: "e.g. Bench Press"
+- tapOn: "Tap to choose an exercise"
+- tapOn: "Search exercises…"
 - inputText: "Bench Press"
+- tapOn: '.*Add "Bench Press" as new exercise.*'
 - tapOn: "e.g. 90"
 - eraseText
 - inputText: "90"
-- tapOn: "Add"
+- tapOn: "^Add$"
 - assertVisible: "Bench Press"
 - assertVisible: "Rest: 90s"
-
-- tapOn: "+ Add Set"
-- assertVisible: "10"

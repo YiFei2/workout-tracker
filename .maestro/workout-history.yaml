@@ -8,15 +8,23 @@ appId: com.anonymous.workouttracker
 - tapOn: "History"
 - assertVisible: "No completed workouts yet."
 
-# Start a blank workout session
+# Start a blank workout session — a location is required before starting
+# any workout (see locations.yaml) — pick/create one inline.
 - tapOn: "+ Start Blank Workout"
+- assertVisible: "Start Workout At"
+- tapOn: "+ Add new location"
+- tapOn: "Name"
+- inputText: "QA Gym"
+- tapOn: "Add"
 - assertVisible: "No exercises yet — add one below."
 
 # Add an exercise
 - tapOn: "+ Add Exercise"
-- tapOn: "e.g. Bench Press"
+- tapOn: "Tap to choose an exercise"
+- tapOn: "Search exercises…"
 - inputText: "Bench Press"
-- tapOn: "Add"
+- tapOn: '.*Add "Bench Press" as new exercise.*'
+- tapOn: "^Add$"
 - assertVisible: "Bench Press"
 - assertVisible: "Rest: 90s"
 

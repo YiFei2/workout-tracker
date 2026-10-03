@@ -4,86 +4,113 @@ appId: com.anonymous.workouttracker
 # list view with exercise count across multiple templates, rename, edit an
 # exercise's name/rest, edit/remove individual sets, remove an exercise, and
 # delete a whole template.
+# The exercise library seeds four sample templates (Push Day, Pull Day, Leg
+# Day, Full Body) on fresh install, so the Templates list is never actually
+# empty after clearState. This test's own templates use distinct "QA ..."
+# names to avoid any ambiguity against the seeded ones.
 - launchApp:
     clearState: true
 - assertVisible: "Templates"
-- assertVisible: "No templates yet — create one to get started."
+- assertVisible: "Push Day"
 
-# --- Template 1: "Pull Day" with two exercises, to check "N exercises" list count ---
+# --- Template 1: "QA Pull Template" with two exercises, to check "N exercises" list count ---
 - tapOn: "+ New Template"
-- inputText: "Pull Day"
+- inputText: "QA Pull Template"
 - tapOn: "Create"
-- assertVisible: "Pull Day"
+- assertVisible: "QA Pull Template"
 
 - tapOn: "+ Add Exercise"
-- tapOn: "e.g. Bench Press"
-- inputText: "Lat Pulldown"
+- tapOn: "Tap to choose an exercise"
+- tapOn: "Search exercises…"
+# Search a partial prefix rather than the exact full name: an exact-name
+# query makes the search box's own displayed value textually identical to
+# the single matching row's label, which is ambiguous for a text-based tap
+# selector (not an issue for a real user, who taps a specific visual
+# location) — see exercise-library-quirks-report.md #6.
+- inputText: "Lat Pull"
+- tapOn: "Lat Pulldown"
 - tapOn: "e.g. 90"
 - eraseText
 - inputText: "60"
-- tapOn: "Add"
+- tapOn: "^Add$"
 - assertVisible: "Lat Pulldown"
 - assertVisible: "Rest: 60s"
 
 - tapOn: "+ Add Exercise"
-- tapOn: "e.g. Bench Press"
+- tapOn: "Tap to choose an exercise"
+- tapOn: "Search exercises…"
 - inputText: "Seated Row"
+- tapOn: '.*Add "Seated Row" as new exercise.*'
 - tapOn: "e.g. 90"
 - eraseText
 - inputText: "45"
-- tapOn: "Add"
+- tapOn: "^Add$"
 - assertVisible: "Seated Row"
 - assertVisible: "Rest: 45s"
 
 - back
-- assertVisible: "Pull Day"
+- assertVisible: "QA Pull Template"
 - assertVisible: "2 exercises"
 
-# --- Template 2: "Leg Day" with one exercise, to check singular "1 exercise" ---
+# --- Template 2: "QA Leg Template" with one exercise, to check singular "1 exercise" ---
 - tapOn: "+ New Template"
-- inputText: "Leg Day"
+- inputText: "QA Leg Template"
 - tapOn: "Create"
-- assertVisible: "Leg Day"
+- assertVisible: "QA Leg Template"
 
 - tapOn: "+ Add Exercise"
-- tapOn: "e.g. Bench Press"
-- inputText: "Squat"
+- tapOn: "Tap to choose an exercise"
+- tapOn: "Search exercises…"
+- inputText: "Back Sq"
+- tapOn: "Back Squat"
 - tapOn: "e.g. 90"
 - eraseText
 - inputText: "120"
-- tapOn: "Add"
-- assertVisible: "Squat"
+- tapOn: "^Add$"
+- assertVisible: "Back Squat"
 - assertVisible: "Rest: 120s"
 
 - back
-- assertVisible: "Leg Day"
+- assertVisible: "QA Leg Template"
 - assertVisible: "1 exercise"
-- assertVisible: "Pull Day"
+- assertVisible: "QA Pull Template"
 - assertVisible: "2 exercises"
 
-# --- Rename "Leg Day" ---
-- tapOn: "Leg Day"
+# --- Rename "QA Leg Template" ---
+- tapOn: "QA Leg Template"
 - assertVisible: "Tap to rename"
 - tapOn: "Tap to rename"
 - assertVisible: "Rename Template"
-# Name field is autoFocus and pre-filled with "Leg Day" — erase the focused
-# field directly rather than tapping the ambiguous pre-filled text.
+# Name field is autoFocus and pre-filled with "QA Leg Template" — erase the
+# focused field directly rather than tapping the ambiguous pre-filled text.
 - eraseText
-- inputText: "Leg Day B"
+- inputText: "QA Leg Template B"
 - tapOn: "Save"
-- assertVisible: "Leg Day B"
+- assertVisible: "QA Leg Template B"
 
 - back
-- assertVisible: "Leg Day B"
+- assertVisible: "QA Leg Template B"
 - assertVisible: "1 exercise"
 
-# --- Edit an exercise's name and rest duration ---
-- tapOn: "Leg Day B"
-- tapOn: "Squat"
+# --- Edit an exercise's identity and rest duration ---
+- tapOn: "QA Leg Template B"
+- tapOn: "Back Squat"
 - assertVisible: "Edit Exercise"
-# Exercise name field is autoFocus and pre-filled with "Squat".
-- eraseText
-- inputText: "Front Squat"
+# Exercise field is a button pre-filled with "Back Squat" — tap it to
+# reopen the picker, then search for a different seeded exercise.
+# Two "Back Squat" text nodes exist at this point (the underlying template
+# screen's exercise card, and the form's own picker button) — the
+# underlying one is marked important-for-accessibility="no-hide-descendants"
+# so a real screen reader / touch can't reach it, but Maestro's own tap
+# resolution doesn't honor that flag and matches by document order, so an
+# index is needed to hit the right one (confirmed via manual adb taps that
+# the real app behaves correctly here — this is a test-only workaround).
+- tapOn:
+    text: "Back Squat"
+    index: 1
+- tapOn: "Search exercises…"
+- inputText: "Front Sq"
+- tapOn: "Front Squat"
 # Rest field shows the pre-filled value "120", distinct from the label
 # "Rest: 120s" behind the overlay — anchor the regex so it can't match that.
 - tapOn: "^120$"
@@ -93,42 +120,12 @@ appId: com.anonymous.workouttracker
 - assertVisible: "Front Squat"
 - assertVisible: "Rest: 150s"
 
-# --- Edit an individual set (reps/weight) ---
-# Front Squat starts with one default set: reps 10, weight 0.
-# Use longPressOn (which selects the field's existing content) instead of
-# tapOn+eraseText: a plain tapOn places the cursor wherever it lands inside
-# the text (often mid-string for a 2-digit value), so eraseText's backspaces
-# only clear what's left of the cursor and inputText then inserts at that
-# same non-end position — e.g. "10" -> tap lands between "1"/"0" -> erase
-# removes "1" -> typing "8" inserts before the remaining "0" -> "80". A long
-# press selects the run of text under it, so the following inputText
-# replaces it outright. To commit the field (onEndEditing fires on blur)
-# tap a neutral, non-interactive label ("Set 1") instead of hideKeyboard —
-# hideKeyboard sends a raw back-press to dismiss the keypad, and if the
-# keypad already auto-dismissed (as observed after longPressOn+inputText
-# here) that back-press instead falls through to Expo Router and pops the
-# whole template-detail screen. Tapping "Set 1" also avoids the on-screen
-# numeric keypad's own digit keys ("0".."9"), which are text nodes that
-# would otherwise collide with bare-digit selectors like "^0$" or "^8$".
-- longPressOn: "^10$"
-- inputText: "8"
-- tapOn: "Set 1"
-- assertVisible: "^8$"
-- longPressOn: "^0$"
-- inputText: "60"
-- tapOn: "Set 1"
-- assertVisible: "^8$"
-- assertVisible: "^60$"
-
-# --- Add a second set, then remove it ---
-- tapOn: "+ Add Set"
-- assertVisible: "Set 2"
-- tapOn:
-    text: "✕"
-    index: 2
-- assertNotVisible: "Set 2"
-
 # --- Remove the exercise entirely ---
+# (No per-set editing on templates anymore — sets/reps/weight were removed
+# from templates entirely by the location-scoped history feature; templates
+# are now just ordered exercise slots. The old "edit an individual set" /
+# "add a second set" coverage that used to live here tested a feature that
+# no longer exists.)
 - tapOn:
     text: "✕"
     index: 0
@@ -142,5 +139,5 @@ appId: com.anonymous.workouttracker
 - assertVisible: "Delete template"
 - tapOn: "Delete"
 - assertVisible: "Templates"
-- assertNotVisible: "Leg Day B"
-- assertVisible: "Pull Day"
+- assertNotVisible: "QA Leg Template B"
+- assertVisible: "QA Pull Template"

@@ -35,8 +35,8 @@ export function useExerciseGroup(id: string) {
   );
 
   const addMember = useCallback(
-    async (exerciseName: string) => {
-      await addExerciseGroupMember(id, exerciseName);
+    async (exerciseId: string) => {
+      await addExerciseGroupMember(id, exerciseId);
       await refresh();
     },
     [id, refresh],

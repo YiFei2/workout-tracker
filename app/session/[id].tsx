@@ -67,11 +67,13 @@ export default function SessionScreen() {
     await setLocation(locationId);
   };
 
-  const handleSelectSwap = async (exerciseName: string) => {
+  const handleSelectSwap = async (exerciseId: string) => {
     const exercise = swappingExercise;
     setSwappingExercise(null);
-    if (!exercise || exerciseName === exercise.exerciseName) return;
-    await swapExercise(exercise.id, exerciseName);
+    if (!exercise || !exercise.exerciseGroupId || exerciseId === exercise.exerciseId) return;
+    const member = groupsById.get(exercise.exerciseGroupId)?.members.find((m) => m.exerciseId === exerciseId);
+    if (!member) return;
+    await swapExercise(exercise.id, member.exerciseId, member.exerciseName);
   };
 
   const handleToggleCompleted = async (exercise: LoggedExercise, set: WorkoutSet) => {
@@ -121,8 +123,18 @@ export default function SessionScreen() {
     ]);
   };
 
+  // While any modal is open, make the screen behind it inert to touch and
+  // accessibility tooling — see the matching comment in app/template/[id].tsx.
+  const anyModalOpen = addingExercise || pickingLocation || swappingExercise !== null;
+
   return (
     <View style={styles.screen}>
+      <View
+        style={styles.container}
+        pointerEvents={anyModalOpen ? "none" : "auto"}
+        importantForAccessibility={anyModalOpen ? "no-hide-descendants" : "auto"}
+        accessibilityElementsHidden={anyModalOpen}
+      >
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         <Stack.Screen options={{ title: session.name }} />
 
@@ -213,6 +225,7 @@ export default function SessionScreen() {
       )}
 
       </ScrollView>
+      </View>
 
       <ExerciseFormModal
         visible={addingExercise}
@@ -238,12 +251,12 @@ export default function SessionScreen() {
         items={
           swappingExercise?.exerciseGroupId
             ? (groupsById.get(swappingExercise.exerciseGroupId)?.members ?? []).map((member) => ({
-                id: member.exerciseName,
+                id: member.exerciseId,
                 label: member.exerciseName,
               }))
             : []
         }
-        selectedId={swappingExercise?.exerciseName ?? null}
+        selectedId={swappingExercise?.exerciseId ?? null}
         onSelect={handleSelectSwap}
         onCancel={() => setSwappingExercise(null)}
       />

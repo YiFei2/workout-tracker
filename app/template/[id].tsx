@@ -98,14 +98,20 @@ export default function TemplateDetailScreen() {
       Alert.alert("Empty group", "Add exercises to this group first (Settings → Exercise Groups).");
       return;
     }
-    await updateExercise(exercise.id, { exerciseGroupId: groupId, exerciseName: firstMember.exerciseName });
+    await updateExercise(exercise.id, {
+      exerciseGroupId: groupId,
+      exerciseId: firstMember.exerciseId,
+      exerciseName: firstMember.exerciseName,
+    });
   };
 
-  const handleSelectMember = async (exerciseName: string) => {
+  const handleSelectMember = async (exerciseId: string) => {
     const exercise = changingMemberFor;
     setChangingMemberFor(null);
-    if (!exercise) return;
-    await updateExercise(exercise.id, { exerciseName });
+    if (!exercise || !exercise.exerciseGroupId) return;
+    const member = groupsById.get(exercise.exerciseGroupId)?.members.find((m) => m.exerciseId === exerciseId);
+    if (!member) return;
+    await updateExercise(exercise.id, { exerciseId: member.exerciseId, exerciseName: member.exerciseName });
   };
 
   const handleUnlinkGroup = (exercise: TemplateExercise) => {
@@ -134,8 +140,27 @@ export default function TemplateDetailScreen() {
     }
   };
 
+  // While any modal is open, make the screen behind it inert to touch and
+  // accessibility tooling — otherwise covered elements (e.g. "+ Add
+  // Exercise") remain reachable to screen readers/automation despite being
+  // visually hidden, and can collide with similarly-worded modal content
+  // (e.g. "Add") in text-based selectors.
+  const anyModalOpen =
+    renaming ||
+    addingExercise ||
+    editingExercise !== null ||
+    pickingStartLocation ||
+    linkingGroupFor !== null ||
+    changingMemberFor !== null;
+
   return (
     <View style={styles.screen}>
+      <View
+        style={styles.container}
+        pointerEvents={anyModalOpen ? "none" : "auto"}
+        importantForAccessibility={anyModalOpen ? "no-hide-descendants" : "auto"}
+        accessibilityElementsHidden={anyModalOpen}
+      >
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         <Stack.Screen options={{ title: template.name }} />
 
@@ -207,6 +232,7 @@ export default function TemplateDetailScreen() {
         <Text style={styles.addButtonText}>+ Add Exercise</Text>
       </Pressable>
       </ScrollView>
+      </View>
 
       <NamePromptModal
         visible={renaming}
@@ -234,7 +260,11 @@ export default function TemplateDetailScreen() {
         submitLabel="Save"
         initialValues={
           editingExercise
-            ? { exerciseName: editingExercise.exerciseName, restSeconds: editingExercise.restSeconds }
+            ? {
+                exerciseId: editingExercise.exerciseId,
+                exerciseName: editingExercise.exerciseName,
+                restSeconds: editingExercise.restSeconds,
+              }
             : undefined
         }
         onCancel={() => setEditingExercise(null)}
@@ -260,12 +290,12 @@ export default function TemplateDetailScreen() {
         items={
           changingMemberFor?.exerciseGroupId
             ? (groupsById.get(changingMemberFor.exerciseGroupId)?.members ?? []).map((member) => ({
-                id: member.exerciseName,
+                id: member.exerciseId,
                 label: member.exerciseName,
               }))
             : []
         }
-        selectedId={changingMemberFor?.exerciseName ?? null}
+        selectedId={changingMemberFor?.exerciseId ?? null}
         onSelect={handleSelectMember}
         onCancel={() => setChangingMemberFor(null)}
       />

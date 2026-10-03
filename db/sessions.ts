@@ -17,11 +17,13 @@ export interface SessionSummary {
 }
 
 export interface NewLoggedExerciseInput {
+  exerciseId: string;
   exerciseName: string;
   restSeconds?: number | null;
 }
 
 export interface LoggedExercisePatch {
+  exerciseId?: string;
   exerciseName?: string;
   restSeconds?: number | null;
 }
@@ -44,6 +46,7 @@ interface SessionRow {
 interface LoggedExerciseRow {
   id: string;
   session_id: string;
+  exercise_id: string;
   exercise_name: string;
   order_index: number;
   rest_seconds: number | null;
@@ -74,6 +77,7 @@ function toLoggedExercise(row: LoggedExerciseRow, sets: WorkoutSet[]): LoggedExe
   return {
     id: row.id,
     sessionId: row.session_id,
+    exerciseId: row.exercise_id,
     exerciseName: row.exercise_name,
     order: row.order_index,
     restSeconds: row.rest_seconds,
@@ -83,33 +87,31 @@ function toLoggedExercise(row: LoggedExerciseRow, sets: WorkoutSet[]): LoggedExe
 }
 
 // Finds the most recent *completed* session that logged this exercise (by
-// case-insensitive/trimmed name match — exercises are still free-text until
-// the exercise library lands, see backlog.md) with at least one *completed*
-// set, optionally scoped to a location. Only completed sets/sessions count
-// as history: an unchecked set or an abandoned session is unreliable signal
-// for a suggestion.
+// library exerciseId, not name — see backlog.md "Exercise library") with at
+// least one *completed* set, optionally scoped to a location. Only completed
+// sets/sessions count as history: an unchecked set or an abandoned session is
+// unreliable signal for a suggestion.
 async function findMostRecentCompletedExerciseId(
   db: SQLiteDatabase,
-  exerciseName: string,
+  exerciseId: string,
   locationId: string | null,
 ): Promise<string | null> {
-  const normalizedName = exerciseName.trim().toLowerCase();
   const locationClause = locationId !== null ? "AND s.location_id = ?" : "";
-  const params = locationId !== null ? [normalizedName, locationId] : [normalizedName];
+  const params = locationId !== null ? [exerciseId, locationId] : [exerciseId];
 
-  const row = await db.getFirstAsync<{ exercise_id: string }>(
-    `SELECT le.id AS exercise_id
+  const row = await db.getFirstAsync<{ logged_exercise_id: string }>(
+    `SELECT le.id AS logged_exercise_id
      FROM logged_exercises le
      JOIN sessions s ON s.id = le.session_id
      WHERE s.completed_at IS NOT NULL
-       AND LOWER(TRIM(le.exercise_name)) = ?
+       AND le.exercise_id = ?
        ${locationClause}
        AND EXISTS (SELECT 1 FROM sets st WHERE st.exercise_id = le.id AND st.completed = 1)
      ORDER BY s.started_at DESC
      LIMIT 1`,
     ...params,
   );
-  return row?.exercise_id ?? null;
+  return row?.logged_exercise_id ?? null;
 }
 
 // The weight/reps suggestion for a freshly added/swapped-in exercise
@@ -120,19 +122,19 @@ async function findMostRecentCompletedExerciseId(
 // logged with — never mixed from different historical sets.
 async function findSuggestedSets(
   db: SQLiteDatabase,
-  exerciseName: string,
+  exerciseId: string,
   locationId: string | null,
 ): Promise<{ weight: number; reps: number }[]> {
-  let exerciseId = await findMostRecentCompletedExerciseId(db, exerciseName, locationId);
-  if (!exerciseId && locationId !== null) {
-    exerciseId = await findMostRecentCompletedExerciseId(db, exerciseName, null);
+  let loggedExerciseId = await findMostRecentCompletedExerciseId(db, exerciseId, locationId);
+  if (!loggedExerciseId && locationId !== null) {
+    loggedExerciseId = await findMostRecentCompletedExerciseId(db, exerciseId, null);
   }
-  if (!exerciseId) {
+  if (!loggedExerciseId) {
     return [];
   }
   return db.getAllAsync<{ weight: number; reps: number }>(
     "SELECT weight, reps FROM sets WHERE exercise_id = ? AND completed = 1 ORDER BY order_index ASC",
-    exerciseId,
+    loggedExerciseId,
   );
 }
 
@@ -143,24 +145,26 @@ async function insertLoggedExerciseWithSuggestedSets(
   db: SQLiteDatabase,
   sessionId: string,
   order: number,
+  exerciseId: string,
   exerciseName: string,
   restSeconds: number | null,
   exerciseGroupId: string | null,
   locationId: string | null,
 ): Promise<LoggedExercise> {
-  const exerciseId = generateId();
+  const loggedExerciseId = generateId();
   await db.runAsync(
-    `INSERT INTO logged_exercises (id, session_id, exercise_name, order_index, rest_seconds, exercise_group_id)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    exerciseId,
+    `INSERT INTO logged_exercises (id, session_id, exercise_id, exercise_name, order_index, rest_seconds, exercise_group_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    loggedExerciseId,
     sessionId,
+    exerciseId,
     exerciseName,
     order,
     restSeconds,
     exerciseGroupId,
   );
 
-  const suggested = await findSuggestedSets(db, exerciseName, locationId);
+  const suggested = await findSuggestedSets(db, exerciseId, locationId);
   const sourceSets = suggested.length > 0 ? suggested : [{ weight: 0, reps: 0 }];
 
   const sets: WorkoutSet[] = [];
@@ -169,17 +173,18 @@ async function insertLoggedExerciseWithSuggestedSets(
     await db.runAsync(
       "INSERT INTO sets (id, exercise_id, order_index, weight, reps, completed) VALUES (?, ?, ?, ?, ?, 0)",
       setId,
-      exerciseId,
+      loggedExerciseId,
       i,
       sourceSets[i].weight,
       sourceSets[i].reps,
     );
-    sets.push({ id: setId, exerciseId, order: i, weight: sourceSets[i].weight, reps: sourceSets[i].reps, completed: false });
+    sets.push({ id: setId, exerciseId: loggedExerciseId, order: i, weight: sourceSets[i].weight, reps: sourceSets[i].reps, completed: false });
   }
 
   return {
-    id: exerciseId,
+    id: loggedExerciseId,
     sessionId,
+    exerciseId,
     exerciseName,
     order,
     restSeconds,
@@ -324,6 +329,7 @@ export async function startSessionFromTemplate(
         db,
         id,
         templateExercise.order,
+        templateExercise.exerciseId,
         templateExercise.exerciseName,
         templateExercise.restSeconds,
         templateExercise.exerciseGroupId,
@@ -352,13 +358,13 @@ export async function setSessionLocation(sessionId: string, locationId: string):
   const db = await getDb();
   await db.runAsync("UPDATE sessions SET location_id = ? WHERE id = ?", locationId, sessionId);
 
-  const exercises = await db.getAllAsync<{ id: string; exercise_name: string }>(
-    "SELECT id, exercise_name FROM logged_exercises WHERE session_id = ?",
+  const exercises = await db.getAllAsync<{ id: string; exercise_id: string }>(
+    "SELECT id, exercise_id FROM logged_exercises WHERE session_id = ?",
     sessionId,
   );
 
   for (const exercise of exercises) {
-    const suggested = await findSuggestedSets(db, exercise.exercise_name, locationId);
+    const suggested = await findSuggestedSets(db, exercise.exercise_id, locationId);
     if (suggested.length === 0) {
       continue;
     }
@@ -415,6 +421,7 @@ export async function addLoggedExercise(
     db,
     sessionId,
     order,
+    input.exerciseId,
     input.exerciseName,
     input.restSeconds ?? null,
     null,
@@ -432,11 +439,13 @@ export async function updateLoggedExercise(id: string, patch: LoggedExercisePatc
     return;
   }
   const next = {
+    exercise_id: patch.exerciseId ?? existing.exercise_id,
     exercise_name: patch.exerciseName ?? existing.exercise_name,
     rest_seconds: patch.restSeconds !== undefined ? patch.restSeconds : existing.rest_seconds,
   };
   await db.runAsync(
-    "UPDATE logged_exercises SET exercise_name = ?, rest_seconds = ? WHERE id = ?",
+    "UPDATE logged_exercises SET exercise_id = ?, exercise_name = ?, rest_seconds = ? WHERE id = ?",
+    next.exercise_id,
     next.exercise_name,
     next.rest_seconds,
     id,
@@ -453,7 +462,11 @@ export async function removeLoggedExercise(id: string): Promise<void> {
 // favor of the swapped-in exercise's own historical weight/reps (same
 // lookup as a freshly added exercise), since the old exercise's numbers
 // aren't meaningful for the new one.
-export async function swapLoggedExercise(id: string, exerciseName: string): Promise<WorkoutSet[]> {
+export async function swapLoggedExercise(
+  id: string,
+  exerciseId: string,
+  exerciseName: string,
+): Promise<WorkoutSet[]> {
   const db = await getDb();
   const existing = await db.getFirstAsync<LoggedExerciseRow>(
     "SELECT * FROM logged_exercises WHERE id = ?",
@@ -467,10 +480,15 @@ export async function swapLoggedExercise(id: string, exerciseName: string): Prom
     existing.session_id,
   );
 
-  await db.runAsync("UPDATE logged_exercises SET exercise_name = ? WHERE id = ?", exerciseName, id);
+  await db.runAsync(
+    "UPDATE logged_exercises SET exercise_id = ?, exercise_name = ? WHERE id = ?",
+    exerciseId,
+    exerciseName,
+    id,
+  );
   await db.runAsync("DELETE FROM sets WHERE exercise_id = ?", id);
 
-  const suggested = await findSuggestedSets(db, exerciseName, sessionRow?.location_id ?? null);
+  const suggested = await findSuggestedSets(db, exerciseId, sessionRow?.location_id ?? null);
   const sourceSets = suggested.length > 0 ? suggested : [{ weight: 0, reps: 0 }];
 
   const sets: WorkoutSet[] = [];

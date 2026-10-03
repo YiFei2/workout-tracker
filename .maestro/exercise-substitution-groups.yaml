@@ -19,15 +19,15 @@ appId: com.anonymous.workouttracker
 - assertVisible: "No exercises yet — add the interchangeable variants (e.g. Barbell Bench, Dumbbell Bench, Machine Chest Press) below."
 
 - tapOn: "+ Add Exercise"
-- tapOn: "Name"
+- tapOn: "Search exercises…"
 - inputText: "Barbell Bench"
-- tapOn: "Add"
+- tapOn: '.*Add "Barbell Bench" as new exercise.*'
 - assertVisible: "Barbell Bench"
 
 - tapOn: "+ Add Exercise"
-- tapOn: "Name"
+- tapOn: "Search exercises…"
 - inputText: "Dumbbell Bench"
-- tapOn: "Add"
+- tapOn: '.*Add "Dumbbell Bench" as new exercise.*'
 - assertVisible: "Dumbbell Bench"
 
 # Rename the group
@@ -49,16 +49,20 @@ appId: com.anonymous.workouttracker
 - assertVisible: "Manage Exercise Groups"
 
 # --- Link a TemplateExercise slot to the group ---
+# Named distinctly from the exercise library's seeded "Push Day" sample
+# template to avoid any ambiguity in later assertions.
 - tapOn: "Templates"
 - tapOn: "+ New Template"
-- inputText: "Push Day"
+- inputText: "QA Substitution Template"
 - tapOn: "Create"
-- tapOn: "Push Day"
+- tapOn: "QA Substitution Template"
 
 - tapOn: "+ Add Exercise"
-- tapOn: "e.g. Bench Press"
+- tapOn: "Tap to choose an exercise"
+- tapOn: "Search exercises…"
 - inputText: "Incline Press"
-- tapOn: "Add"
+- tapOn: '.*Add "Incline Press" as new exercise.*'
+- tapOn: "^Add$"
 - assertVisible: "Incline Press"
 
 - tapOn: "+ Link substitution group"
@@ -88,7 +92,14 @@ appId: com.anonymous.workouttracker
 - assertVisible: "Barbell Bench"
 
 # --- Starting a session shows the Swap action ---
+# A location is required before starting any workout (see locations.yaml) —
+# pick/create one via the inline "+ Add new location" option.
 - tapOn: "Start Workout"
+- assertVisible: "Start Workout At"
+- tapOn: "+ Add new location"
+- tapOn: "Name"
+- inputText: "QA Gym"
+- tapOn: "Add"
 - assertVisible: "⇄ Swap"
 - assertVisible: "Barbell Bench"
 
@@ -129,7 +140,7 @@ appId: com.anonymous.workouttracker
 # it was linked as "Barbell Bench" (the group's first member) and stays that
 # way as plain text once the group is gone.
 - tapOn: "Templates"
-- tapOn: "Push Day"
+- tapOn: "QA Substitution Template"
 - assertVisible: "Barbell Bench"
 - assertNotVisible: "Substitutes:"
 - assertVisible: "+ Link substitution group"

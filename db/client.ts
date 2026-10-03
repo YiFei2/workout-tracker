@@ -7,7 +7,9 @@ import {
   V4_INDEX_STATEMENTS,
   V4_MIGRATION_STATEMENTS,
   V5_MIGRATION_STATEMENTS,
+  V6_MIGRATION_STATEMENTS,
 } from "./schema";
+import { seedInitialData } from "./seed";
 
 const DB_NAME = "workout-tracker.db";
 
@@ -40,6 +42,12 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     }
   }
 
+  if (currentVersion < 6) {
+    for (const statement of V6_MIGRATION_STATEMENTS) {
+      await db.execAsync(statement);
+    }
+  }
+
   for (const statement of CREATE_TABLE_STATEMENTS) {
     await db.execAsync(statement);
   }
@@ -61,6 +69,8 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   for (const statement of V4_INDEX_STATEMENTS) {
     await db.execAsync(statement);
   }
+
+  await seedInitialData(db);
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
 }

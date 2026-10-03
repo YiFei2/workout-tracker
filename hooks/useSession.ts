@@ -85,8 +85,8 @@ export function useSession(id: string) {
   );
 
   const swapExercise = useCallback(
-    async (exerciseId: string, exerciseName: string) => {
-      await swapLoggedExercise(exerciseId, exerciseName);
+    async (loggedExerciseId: string, exerciseId: string, exerciseName: string) => {
+      await swapLoggedExercise(loggedExerciseId, exerciseId, exerciseName);
       await refresh();
     },
     [refresh],

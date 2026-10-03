@@ -2,9 +2,15 @@
 // (see client.ts). Bump SCHEMA_VERSION and add a migration when this shape
 // changes.
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export const CREATE_TABLE_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS exercises (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );`,
+
   `CREATE TABLE IF NOT EXISTS templates (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
@@ -21,7 +27,7 @@ export const CREATE_TABLE_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS exercise_group_members (
     id TEXT PRIMARY KEY NOT NULL,
     group_id TEXT NOT NULL REFERENCES exercise_groups(id) ON DELETE CASCADE,
-    exercise_name TEXT NOT NULL,
+    exercise_id TEXT NOT NULL REFERENCES exercises(id),
     order_index INTEGER NOT NULL
   );`,
 
@@ -34,6 +40,7 @@ export const CREATE_TABLE_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS template_exercises (
     id TEXT PRIMARY KEY NOT NULL,
     template_id TEXT NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
+    exercise_id TEXT NOT NULL REFERENCES exercises(id),
     exercise_name TEXT NOT NULL,
     order_index INTEGER NOT NULL,
     rest_seconds INTEGER,
@@ -52,6 +59,7 @@ export const CREATE_TABLE_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS logged_exercises (
     id TEXT PRIMARY KEY NOT NULL,
     session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    exercise_id TEXT NOT NULL REFERENCES exercises(id),
     exercise_name TEXT NOT NULL,
     order_index INTEGER NOT NULL,
     rest_seconds INTEGER,
@@ -77,6 +85,8 @@ export const CREATE_TABLE_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS idx_logged_exercises_session_id ON logged_exercises(session_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sets_exercise_id ON sets(exercise_id);`,
   `CREATE INDEX IF NOT EXISTS idx_exercise_group_members_group_id ON exercise_group_members(group_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_template_exercises_exercise_id ON template_exercises(exercise_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_logged_exercises_exercise_id ON logged_exercises(exercise_id);`,
 ];
 
 // Index on a v4 column: must only run once location_id is guaranteed to
@@ -119,3 +129,25 @@ export const V4_MIGRATION_STATEMENTS = [
 // ordered list of exercise slots. No shipped users yet, so we just drop the
 // table rather than write a data-preserving migration.
 export const V5_MIGRATION_STATEMENTS = [`DROP TABLE IF EXISTS template_sets;`];
+
+// v6: exercises move from free-text names to a proper library (new
+// `exercises` table — see backlog.md "Exercise library"). template_exercises
+// / logged_exercises gain a required exercise_id FK (exercise_name stays as
+// a denormalized snapshot for historical display); exercise_group_members'
+// exercise_name is replaced outright by exercise_id (group composition is
+// current config, not a log, so member names are resolved live via join
+// instead of snapshotted — see db/exerciseGroups.ts). No shipped users yet,
+// so rather than backfill-matching every existing free-text name against
+// the new table, we just wipe and reseed with the curated exercise list
+// (and a few sample templates) — same precedent as v2/v5.
+export const V6_MIGRATION_STATEMENTS = [
+  `DROP TABLE IF EXISTS sets;`,
+  `DROP TABLE IF EXISTS logged_exercises;`,
+  `DROP TABLE IF EXISTS sessions;`,
+  `DROP TABLE IF EXISTS template_exercises;`,
+  `DROP TABLE IF EXISTS templates;`,
+  `DROP TABLE IF EXISTS exercise_group_members;`,
+  `DROP TABLE IF EXISTS exercise_groups;`,
+  `DROP TABLE IF EXISTS locations;`,
+  `DROP TABLE IF EXISTS exercises;`,
+];

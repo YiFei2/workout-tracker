@@ -11,12 +11,14 @@ export interface TemplateSummary {
 }
 
 export interface NewTemplateExerciseInput {
+  exerciseId: string;
   exerciseName: string;
   restSeconds?: number | null;
   exerciseGroupId?: string | null;
 }
 
 export interface TemplateExercisePatch {
+  exerciseId?: string;
   exerciseName?: string;
   restSeconds?: number | null;
   exerciseGroupId?: string | null;
@@ -32,6 +34,7 @@ interface TemplateRow {
 interface TemplateExerciseRow {
   id: string;
   template_id: string;
+  exercise_id: string;
   exercise_name: string;
   order_index: number;
   rest_seconds: number | null;
@@ -42,6 +45,7 @@ function toTemplateExercise(row: TemplateExerciseRow): TemplateExercise {
   return {
     id: row.id,
     templateId: row.template_id,
+    exerciseId: row.exercise_id,
     exerciseName: row.exercise_name,
     order: row.order_index,
     restSeconds: row.rest_seconds,
@@ -142,10 +146,11 @@ export async function addTemplateExercise(
   const exerciseGroupId = input.exerciseGroupId ?? null;
 
   await db.runAsync(
-    `INSERT INTO template_exercises (id, template_id, exercise_name, order_index, rest_seconds, exercise_group_id)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO template_exercises (id, template_id, exercise_id, exercise_name, order_index, rest_seconds, exercise_group_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     id,
     templateId,
+    input.exerciseId,
     input.exerciseName,
     order,
     restSeconds,
@@ -156,6 +161,7 @@ export async function addTemplateExercise(
   return {
     id,
     templateId,
+    exerciseId: input.exerciseId,
     exerciseName: input.exerciseName,
     order,
     restSeconds,
@@ -177,6 +183,7 @@ export async function updateTemplateExercise(
   }
 
   const next = {
+    exercise_id: patch.exerciseId ?? existing.exercise_id,
     exercise_name: patch.exerciseName ?? existing.exercise_name,
     rest_seconds: patch.restSeconds !== undefined ? patch.restSeconds : existing.rest_seconds,
     exercise_group_id:
@@ -184,7 +191,8 @@ export async function updateTemplateExercise(
   };
 
   await db.runAsync(
-    "UPDATE template_exercises SET exercise_name = ?, rest_seconds = ?, exercise_group_id = ? WHERE id = ?",
+    "UPDATE template_exercises SET exercise_id = ?, exercise_name = ?, rest_seconds = ?, exercise_group_id = ? WHERE id = ?",
+    next.exercise_id,
     next.exercise_name,
     next.rest_seconds,
     next.exercise_group_id,

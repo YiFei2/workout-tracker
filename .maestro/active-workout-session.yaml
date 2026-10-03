@@ -1,10 +1,13 @@
 appId: com.anonymous.workouttracker
 ---
 # --- Set up a template with one exercise + one set, to start a session from ---
+# The exercise library seeds four sample templates on fresh install, so the
+# Templates list isn't actually empty after clearState — this test's own
+# template uses a distinct name so there's no ambiguity.
 - launchApp:
     clearState: true
 - assertVisible: "Templates"
-- assertVisible: "No templates yet — create one to get started."
+- assertVisible: "Push Day"
 
 - tapOn: "+ New Template"
 - inputText: "E2E Session Template"
@@ -12,18 +15,26 @@ appId: com.anonymous.workouttracker
 - assertVisible: "Tap to rename"
 
 - tapOn: "+ Add Exercise"
-- tapOn: "e.g. Bench Press"
+- tapOn: "Tap to choose an exercise"
+- tapOn: "Search exercises…"
 - inputText: "Bench Press"
+- tapOn: '.*Add "Bench Press" as new exercise.*'
 - tapOn: "e.g. 90"
 - eraseText
 - inputText: "5"
-- tapOn: "Add"
+- tapOn: "^Add$"
 - assertVisible: "Bench Press"
 - assertVisible: "Rest: 5s"
-- assertVisible: "10"
 
 # ================= SESSION 1: started from template =================
+# A location is required before starting any workout (see locations.yaml) —
+# pick/create one via the inline "+ Add new location" option.
 - tapOn: "Start Workout"
+- assertVisible: "Start Workout At"
+- tapOn: "+ Add new location"
+- tapOn: "Name"
+- inputText: "QA Gym"
+- tapOn: "Add"
 - assertVisible: "Bench Press"
 - assertVisible: "Rest: 5s"
 - assertVisible: "Complete Workout"
@@ -33,7 +44,13 @@ appId: com.anonymous.workouttracker
 # (longPressOn selects the whole numeric value so eraseText clears it fully;
 # a plain tapOn only places the cursor mid-text and eraseText then only
 # removes one character, e.g. "10" -> "0" -> typing "8" gives "80".)
-- longPressOn: "10"
+# With no prior history anywhere for this exercise, Set 1 now defaults to
+# reps=0, weight=0 (location-scoped suggestions fall back to blank, not the
+# old static reps=10) — both fields show "0" simultaneously, so the reps
+# field (first of the two) needs an index to disambiguate from weight.
+- longPressOn:
+    text: "^0$"
+    index: 0
 - eraseText
 - inputText: "8"
 - tapOn: "Bench Press"
@@ -87,15 +104,21 @@ appId: com.anonymous.workouttracker
 - assertVisible: "No completed workouts yet."
 
 - tapOn: "+ Start Blank Workout"
+# "QA Gym" already exists from SESSION 1 above — just select it.
+- assertVisible: "Start Workout At"
+- tapOn: "QA Gym"
 - assertVisible: "No exercises yet — add one below."
 
 # --- Add an exercise to the session, with no rest duration set ---
 - tapOn: "+ Add Exercise"
-- tapOn: "e.g. Bench Press"
-- inputText: "Leg Press"
+- tapOn: "Tap to choose an exercise"
+- tapOn: "Search exercises…"
+# Partial-prefix search — see exercise-library-quirks-report.md #6.
+- inputText: "Leg Pre"
+- tapOn: "Leg Press"
 - tapOn: "e.g. 90"
 - eraseText
-- tapOn: "Add"
+- tapOn: "^Add$"
 - assertVisible: "Leg Press"
 - assertVisible: "No rest set"
 
@@ -111,12 +134,14 @@ appId: com.anonymous.workouttracker
 - assertVisible: "No exercises yet — add one below."
 
 - tapOn: "+ Add Exercise"
-- tapOn: "e.g. Bench Press"
-- inputText: "Deadlift"
-- tapOn: "Add"
+- tapOn: "Tap to choose an exercise"
+- tapOn: "Search exercises…"
+# Partial-prefix search — see exercise-library-quirks-report.md #6.
+- inputText: "Dead"
+- tapOn: "Deadlift"
+- tapOn: "^Add$"
 - assertVisible: "Deadlift"
 - assertVisible: "Rest: 90s"
-- assertVisible: "10"
 
 # --- Mark the default set completed, starts a 90s rest timer, then skip it ---
 - tapOn: "Done"
