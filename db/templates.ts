@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 
-import type { TemplateExercise, TemplateSet, WorkoutTemplate } from "../types";
+import type { TemplateExercise, WorkoutTemplate } from "../types";
 import { getDb } from "./client";
 import { generateId } from "./ids";
 
@@ -22,16 +22,6 @@ export interface TemplateExercisePatch {
   exerciseGroupId?: string | null;
 }
 
-export interface TemplateSetInput {
-  reps: number;
-  weight: number;
-}
-
-export interface TemplateSetPatch {
-  reps?: number;
-  weight?: number;
-}
-
 interface TemplateRow {
   id: string;
   name: string;
@@ -48,25 +38,7 @@ interface TemplateExerciseRow {
   exercise_group_id: string | null;
 }
 
-interface TemplateSetRow {
-  id: string;
-  template_exercise_id: string;
-  order_index: number;
-  reps: number;
-  weight: number;
-}
-
-function toTemplateSet(row: TemplateSetRow): TemplateSet {
-  return {
-    id: row.id,
-    templateExerciseId: row.template_exercise_id,
-    order: row.order_index,
-    reps: row.reps,
-    weight: row.weight,
-  };
-}
-
-function toTemplateExercise(row: TemplateExerciseRow, sets: TemplateSet[]): TemplateExercise {
+function toTemplateExercise(row: TemplateExerciseRow): TemplateExercise {
   return {
     id: row.id,
     templateId: row.template_id,
@@ -74,7 +46,6 @@ function toTemplateExercise(row: TemplateExerciseRow, sets: TemplateSet[]): Temp
     order: row.order_index,
     restSeconds: row.rest_seconds,
     exerciseGroupId: row.exercise_group_id,
-    sets,
   };
 }
 
@@ -115,31 +86,13 @@ export async function getTemplate(id: string): Promise<WorkoutTemplate | null> {
     "SELECT * FROM template_exercises WHERE template_id = ? ORDER BY order_index ASC",
     id,
   );
-  const setRows = await db.getAllAsync<TemplateSetRow>(
-    `SELECT ts.* FROM template_sets ts
-     JOIN template_exercises te ON te.id = ts.template_exercise_id
-     WHERE te.template_id = ?
-     ORDER BY ts.order_index ASC`,
-    id,
-  );
-
-  const setsByExercise = new Map<string, TemplateSet[]>();
-  for (const setRow of setRows) {
-    const set = toTemplateSet(setRow);
-    const existing = setsByExercise.get(set.templateExerciseId);
-    if (existing) {
-      existing.push(set);
-    } else {
-      setsByExercise.set(set.templateExerciseId, [set]);
-    }
-  }
 
   return {
     id: templateRow.id,
     name: templateRow.name,
     createdAt: templateRow.created_at,
     updatedAt: templateRow.updated_at,
-    exercises: exerciseRows.map((row) => toTemplateExercise(row, setsByExercise.get(row.id) ?? [])),
+    exercises: exerciseRows.map(toTemplateExercise),
   };
 }
 
@@ -174,10 +127,6 @@ export async function deleteTemplate(id: string): Promise<void> {
   await db.runAsync("DELETE FROM templates WHERE id = ?", id);
 }
 
-// New exercises start with one default set (10 reps @ 0kg) so the UI never
-// shows an empty exercise — the user edits/adds from there.
-const DEFAULT_FIRST_SET: TemplateSetInput = { reps: 10, weight: 0 };
-
 export async function addTemplateExercise(
   templateId: string,
   input: NewTemplateExerciseInput,
@@ -204,8 +153,6 @@ export async function addTemplateExercise(
   );
   await touchTemplate(db, templateId);
 
-  const firstSet = await addTemplateSet(id, DEFAULT_FIRST_SET);
-
   return {
     id,
     templateId,
@@ -213,7 +160,6 @@ export async function addTemplateExercise(
     order,
     restSeconds,
     exerciseGroupId,
-    sets: [firstSet],
   };
 }
 
@@ -276,74 +222,4 @@ export async function reorderTemplateExercises(
     }
   });
   await touchTemplate(db, templateId);
-}
-
-async function touchTemplateForExercise(db: SQLiteDatabase, templateExerciseId: string): Promise<void> {
-  const exerciseRow = await db.getFirstAsync<TemplateExerciseRow>(
-    "SELECT * FROM template_exercises WHERE id = ?",
-    templateExerciseId,
-  );
-  if (exerciseRow) {
-    await touchTemplate(db, exerciseRow.template_id);
-  }
-}
-
-export async function addTemplateSet(
-  templateExerciseId: string,
-  input: TemplateSetInput,
-): Promise<TemplateSet> {
-  const db = await getDb();
-  const id = generateId();
-  const maxOrderRow = await db.getFirstAsync<{ max_order: number | null }>(
-    "SELECT MAX(order_index) AS max_order FROM template_sets WHERE template_exercise_id = ?",
-    templateExerciseId,
-  );
-  const order = (maxOrderRow?.max_order ?? -1) + 1;
-
-  await db.runAsync(
-    "INSERT INTO template_sets (id, template_exercise_id, order_index, reps, weight) VALUES (?, ?, ?, ?, ?)",
-    id,
-    templateExerciseId,
-    order,
-    input.reps,
-    input.weight,
-  );
-  await touchTemplateForExercise(db, templateExerciseId);
-
-  return { id, templateExerciseId, order, reps: input.reps, weight: input.weight };
-}
-
-export async function updateTemplateSet(id: string, patch: TemplateSetPatch): Promise<void> {
-  const db = await getDb();
-  const existing = await db.getFirstAsync<TemplateSetRow>(
-    "SELECT * FROM template_sets WHERE id = ?",
-    id,
-  );
-  if (!existing) {
-    return;
-  }
-  const next = {
-    reps: patch.reps ?? existing.reps,
-    weight: patch.weight ?? existing.weight,
-  };
-  await db.runAsync(
-    "UPDATE template_sets SET reps = ?, weight = ? WHERE id = ?",
-    next.reps,
-    next.weight,
-    id,
-  );
-  await touchTemplateForExercise(db, existing.template_exercise_id);
-}
-
-export async function removeTemplateSet(id: string): Promise<void> {
-  const db = await getDb();
-  const existing = await db.getFirstAsync<TemplateSetRow>(
-    "SELECT * FROM template_sets WHERE id = ?",
-    id,
-  );
-  if (!existing) {
-    return;
-  }
-  await db.runAsync("DELETE FROM template_sets WHERE id = ?", id);
-  await touchTemplateForExercise(db, existing.template_exercise_id);
 }

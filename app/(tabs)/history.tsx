@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { LocationPickerModal } from "../../components/LocationPickerModal";
 import { useTheme } from "../../contexts/ThemeContext";
 import { startBlankSession } from "../../db";
 import { useSessions } from "../../hooks/useSessions";
@@ -22,11 +23,17 @@ export default function HistoryScreen() {
   const { sessions, loading, remove } = useSessions();
   const router = useRouter();
   const [starting, setStarting] = useState(false);
+  const [pickingStartLocation, setPickingStartLocation] = useState(false);
 
-  const handleStartBlank = async () => {
+  const handleStartBlank = () => {
+    setPickingStartLocation(true);
+  };
+
+  const handleStartLocationSelected = async (locationId: string) => {
+    setPickingStartLocation(false);
     setStarting(true);
     try {
-      const session = await startBlankSession();
+      const session = await startBlankSession(locationId);
       router.push(`/session/${session.id}`);
     } finally {
       setStarting(false);
@@ -77,6 +84,13 @@ export default function HistoryScreen() {
       >
         <Text style={styles.fabText}>{starting ? "Starting…" : "+ Start Blank Workout"}</Text>
       </Pressable>
+
+      <LocationPickerModal
+        visible={pickingStartLocation}
+        title="Start Workout At"
+        onSelect={handleStartLocationSelected}
+        onCancel={() => setPickingStartLocation(false)}
+      />
     </View>
   );
 }

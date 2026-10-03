@@ -14,15 +14,6 @@ export interface TemplateExercise {
   restSeconds: number | null;
   /** Substitution group this slot is defined by, if any — see ExerciseGroup. */
   exerciseGroupId: string | null;
-  sets: TemplateSet[];
-}
-
-export interface TemplateSet {
-  id: string;
-  templateExerciseId: string;
-  order: number;
-  reps: number;
-  weight: number;
 }
 
 export interface WorkoutSession {
@@ -31,7 +22,14 @@ export interface WorkoutSession {
   templateId: string | null;
   startedAt: string;
   completedAt: string | null;
-  /** Gym/location this session was logged at, if set — see Location. */
+  /**
+   * Gym/location this session was logged at — required by the app whenever a
+   * new session is started (see db/sessions.ts startBlankSession /
+   * startSessionFromTemplate), since it drives per-location weight/reps
+   * suggestions. Stays nullable here because deleting a Location clears the
+   * tag on any session that referenced it (ON DELETE SET NULL) while
+   * preserving the rest of that session's logged data.
+   */
   locationId: string | null;
   exercises: LoggedExercise[];
 }

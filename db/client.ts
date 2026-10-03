@@ -6,6 +6,7 @@ import {
   V2_MIGRATION_STATEMENTS,
   V4_INDEX_STATEMENTS,
   V4_MIGRATION_STATEMENTS,
+  V5_MIGRATION_STATEMENTS,
 } from "./schema";
 
 const DB_NAME = "workout-tracker.db";
@@ -29,6 +30,12 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
 
   if (currentVersion < 2) {
     for (const statement of V2_MIGRATION_STATEMENTS) {
+      await db.execAsync(statement);
+    }
+  }
+
+  if (currentVersion < 5) {
+    for (const statement of V5_MIGRATION_STATEMENTS) {
       await db.execAsync(statement);
     }
   }

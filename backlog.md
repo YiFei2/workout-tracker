@@ -7,7 +7,12 @@
 
 ## Future Enhancements
 
-- **Exercise library**: enforce exercise names against a curated list with muscle group metadata; migrate free-text names to library entries
+- **Exercise library** (next up, right after the location-scoped weight-tracking fix): a separate `exercises` table, preloaded with a curated list of common exercises (with muscle group metadata), that users can also add their own entries to. Scope:
+  - New `Exercise { id, name, muscleGroup, ... }` table + seed data for common exercises.
+  - Replace free-text `exerciseName: string` on `TemplateExercise` / `LoggedExercise` with `exerciseId` referencing this table (string fields may stay for display/back-compat during transition, but matching/lookups move to ID).
+  - User-added custom exercises go into the same table (not a separate "custom" concept) — library is just seeded, not closed.
+  - **Why this is next**: the location-scoped weight-tracking feature (see `requirements.md` §4) added a historical weight/reps lookup keyed by exercise name (case-insensitive/trimmed string match) purely as an interim measure — free-text names are fragile for this (typos, inconsistent casing, "DB Bench" vs "Dumbbell Bench Press" never matching). Once the library exists, that lookup should key off `exerciseId` instead, which is the whole motivation for sequencing this feature right after.
+  - Also unblocks tightening the "grouped exercise name can drift from its group" bug above (line 6) — with ID-based exercises, a template slot linked to an `ExerciseGroup` could just reference group members by ID instead of free-text name.
 - **Drag-to-reorder**: reorder exercises within a template or active session
 - **Progress charts**: visualise weight/volume progression per exercise over time
 - **Cloud sync**: user accounts, cross-device sync

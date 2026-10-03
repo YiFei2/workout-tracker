@@ -93,7 +93,7 @@ export function useSession(id: string) {
   );
 
   const setLocation = useCallback(
-    async (locationId: string | null) => {
+    async (locationId: string) => {
       await setSessionLocation(id, locationId);
       await refresh();
     },

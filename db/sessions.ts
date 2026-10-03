@@ -1,3 +1,5 @@
+import type { SQLiteDatabase } from "expo-sqlite";
+
 import { getDb } from "./client";
 import { generateId } from "./ids";
 import { getTemplate } from "./templates";
@@ -80,6 +82,112 @@ function toLoggedExercise(row: LoggedExerciseRow, sets: WorkoutSet[]): LoggedExe
   };
 }
 
+// Finds the most recent *completed* session that logged this exercise (by
+// case-insensitive/trimmed name match — exercises are still free-text until
+// the exercise library lands, see backlog.md) with at least one *completed*
+// set, optionally scoped to a location. Only completed sets/sessions count
+// as history: an unchecked set or an abandoned session is unreliable signal
+// for a suggestion.
+async function findMostRecentCompletedExerciseId(
+  db: SQLiteDatabase,
+  exerciseName: string,
+  locationId: string | null,
+): Promise<string | null> {
+  const normalizedName = exerciseName.trim().toLowerCase();
+  const locationClause = locationId !== null ? "AND s.location_id = ?" : "";
+  const params = locationId !== null ? [normalizedName, locationId] : [normalizedName];
+
+  const row = await db.getFirstAsync<{ exercise_id: string }>(
+    `SELECT le.id AS exercise_id
+     FROM logged_exercises le
+     JOIN sessions s ON s.id = le.session_id
+     WHERE s.completed_at IS NOT NULL
+       AND LOWER(TRIM(le.exercise_name)) = ?
+       ${locationClause}
+       AND EXISTS (SELECT 1 FROM sets st WHERE st.exercise_id = le.id AND st.completed = 1)
+     ORDER BY s.started_at DESC
+     LIMIT 1`,
+    ...params,
+  );
+  return row?.exercise_id ?? null;
+}
+
+// The weight/reps suggestion for a freshly added/swapped-in exercise
+// instance: most recent completed sets for this exercise at this location,
+// falling back to the most recent completed sets at any location, falling
+// back to no suggestion (caller starts blank) if there's no history anywhere.
+// Weight and reps always travel together as the pair they were actually
+// logged with — never mixed from different historical sets.
+async function findSuggestedSets(
+  db: SQLiteDatabase,
+  exerciseName: string,
+  locationId: string | null,
+): Promise<{ weight: number; reps: number }[]> {
+  let exerciseId = await findMostRecentCompletedExerciseId(db, exerciseName, locationId);
+  if (!exerciseId && locationId !== null) {
+    exerciseId = await findMostRecentCompletedExerciseId(db, exerciseName, null);
+  }
+  if (!exerciseId) {
+    return [];
+  }
+  return db.getAllAsync<{ weight: number; reps: number }>(
+    "SELECT weight, reps FROM sets WHERE exercise_id = ? AND completed = 1 ORDER BY order_index ASC",
+    exerciseId,
+  );
+}
+
+// Creates a logged exercise plus however many sets it had last time (per
+// findSuggestedSets), each pre-filled with that historical weight/reps —
+// or a single blank set if there's no history anywhere for this exercise.
+async function insertLoggedExerciseWithSuggestedSets(
+  db: SQLiteDatabase,
+  sessionId: string,
+  order: number,
+  exerciseName: string,
+  restSeconds: number | null,
+  exerciseGroupId: string | null,
+  locationId: string | null,
+): Promise<LoggedExercise> {
+  const exerciseId = generateId();
+  await db.runAsync(
+    `INSERT INTO logged_exercises (id, session_id, exercise_name, order_index, rest_seconds, exercise_group_id)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    exerciseId,
+    sessionId,
+    exerciseName,
+    order,
+    restSeconds,
+    exerciseGroupId,
+  );
+
+  const suggested = await findSuggestedSets(db, exerciseName, locationId);
+  const sourceSets = suggested.length > 0 ? suggested : [{ weight: 0, reps: 0 }];
+
+  const sets: WorkoutSet[] = [];
+  for (let i = 0; i < sourceSets.length; i++) {
+    const setId = generateId();
+    await db.runAsync(
+      "INSERT INTO sets (id, exercise_id, order_index, weight, reps, completed) VALUES (?, ?, ?, ?, ?, 0)",
+      setId,
+      exerciseId,
+      i,
+      sourceSets[i].weight,
+      sourceSets[i].reps,
+    );
+    sets.push({ id: setId, exerciseId, order: i, weight: sourceSets[i].weight, reps: sourceSets[i].reps, completed: false });
+  }
+
+  return {
+    id: exerciseId,
+    sessionId,
+    exerciseName,
+    order,
+    restSeconds,
+    exerciseGroupId,
+    sets,
+  };
+}
+
 export async function listSessions(): Promise<SessionSummary[]> {
   const db = await getDb();
   const rows = await db.getAllAsync<{
@@ -158,17 +266,22 @@ export async function getSession(id: string): Promise<WorkoutSession | null> {
   };
 }
 
-export async function startBlankSession(name?: string): Promise<WorkoutSession> {
+// Location is required: it drives per-location weight/reps suggestions, so
+// every new session must be tagged with one from the moment it's created —
+// see the pre-start LocationPickerModal in app/(tabs)/history.tsx and
+// app/template/[id].tsx.
+export async function startBlankSession(locationId: string, name?: string): Promise<WorkoutSession> {
   const db = await getDb();
   const id = generateId();
   const now = new Date().toISOString();
   const sessionName = name?.trim() || new Date().toLocaleString();
 
   await db.runAsync(
-    "INSERT INTO sessions (id, name, template_id, started_at, completed_at, location_id) VALUES (?, ?, NULL, ?, NULL, NULL)",
+    "INSERT INTO sessions (id, name, template_id, started_at, completed_at, location_id) VALUES (?, ?, NULL, ?, NULL, ?)",
     id,
     sessionName,
     now,
+    locationId,
   );
 
   return {
@@ -177,12 +290,15 @@ export async function startBlankSession(name?: string): Promise<WorkoutSession> 
     templateId: null,
     startedAt: now,
     completedAt: null,
-    locationId: null,
+    locationId,
     exercises: [],
   };
 }
 
-export async function startSessionFromTemplate(templateId: string): Promise<WorkoutSession> {
+export async function startSessionFromTemplate(
+  templateId: string,
+  locationId: string,
+): Promise<WorkoutSession> {
   const template = await getTemplate(templateId);
   if (!template) {
     throw new Error(`Template ${templateId} not found`);
@@ -193,58 +309,27 @@ export async function startSessionFromTemplate(templateId: string): Promise<Work
   const now = new Date().toISOString();
 
   await db.runAsync(
-    "INSERT INTO sessions (id, name, template_id, started_at, completed_at, location_id) VALUES (?, ?, ?, ?, NULL, NULL)",
+    "INSERT INTO sessions (id, name, template_id, started_at, completed_at, location_id) VALUES (?, ?, ?, ?, NULL, ?)",
     id,
     template.name,
     templateId,
     now,
+    locationId,
   );
 
   const exercises: LoggedExercise[] = [];
   for (const templateExercise of template.exercises) {
-    const exerciseId = generateId();
-    await db.runAsync(
-      `INSERT INTO logged_exercises (id, session_id, exercise_name, order_index, rest_seconds, exercise_group_id)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      exerciseId,
-      id,
-      templateExercise.exerciseName,
-      templateExercise.order,
-      templateExercise.restSeconds,
-      templateExercise.exerciseGroupId,
+    exercises.push(
+      await insertLoggedExerciseWithSuggestedSets(
+        db,
+        id,
+        templateExercise.order,
+        templateExercise.exerciseName,
+        templateExercise.restSeconds,
+        templateExercise.exerciseGroupId,
+        locationId,
+      ),
     );
-
-    const sets: WorkoutSet[] = [];
-    for (const templateSet of templateExercise.sets) {
-      const setId = generateId();
-      await db.runAsync(
-        `INSERT INTO sets (id, exercise_id, order_index, weight, reps, completed)
-         VALUES (?, ?, ?, ?, ?, 0)`,
-        setId,
-        exerciseId,
-        templateSet.order,
-        templateSet.weight,
-        templateSet.reps,
-      );
-      sets.push({
-        id: setId,
-        exerciseId,
-        order: templateSet.order,
-        weight: templateSet.weight,
-        reps: templateSet.reps,
-        completed: false,
-      });
-    }
-
-    exercises.push({
-      id: exerciseId,
-      sessionId: id,
-      exerciseName: templateExercise.exerciseName,
-      order: templateExercise.order,
-      restSeconds: templateExercise.restSeconds,
-      exerciseGroupId: templateExercise.exerciseGroupId,
-      sets,
-    });
   }
 
   return {
@@ -253,14 +338,47 @@ export async function startSessionFromTemplate(templateId: string): Promise<Work
     templateId,
     startedAt: now,
     completedAt: null,
-    locationId: null,
+    locationId,
     exercises,
   };
 }
 
-export async function setSessionLocation(sessionId: string, locationId: string | null): Promise<void> {
+// Changing location mid-session only relabels already-completed sets'
+// context — a completed set is an already-logged fact and is left alone.
+// Sets not yet completed are still just suggestions, so they get refreshed
+// against the newly selected location's history (falling back to any
+// location, same as a freshly added exercise).
+export async function setSessionLocation(sessionId: string, locationId: string): Promise<void> {
   const db = await getDb();
   await db.runAsync("UPDATE sessions SET location_id = ? WHERE id = ?", locationId, sessionId);
+
+  const exercises = await db.getAllAsync<{ id: string; exercise_name: string }>(
+    "SELECT id, exercise_name FROM logged_exercises WHERE session_id = ?",
+    sessionId,
+  );
+
+  for (const exercise of exercises) {
+    const suggested = await findSuggestedSets(db, exercise.exercise_name, locationId);
+    if (suggested.length === 0) {
+      continue;
+    }
+    const incompleteSets = await db.getAllAsync<SetRow>(
+      "SELECT * FROM sets WHERE exercise_id = ? AND completed = 0 ORDER BY order_index ASC",
+      exercise.id,
+    );
+    for (const set of incompleteSets) {
+      const match = suggested[set.order_index];
+      if (!match) {
+        continue;
+      }
+      await db.runAsync(
+        "UPDATE sets SET weight = ?, reps = ? WHERE id = ?",
+        match.weight,
+        match.reps,
+        set.id,
+      );
+    }
+  }
 }
 
 export async function completeSession(id: string): Promise<void> {
@@ -283,35 +401,25 @@ export async function addLoggedExercise(
   input: NewLoggedExerciseInput,
 ): Promise<LoggedExercise> {
   const db = await getDb();
-  const id = generateId();
+  const sessionRow = await db.getFirstAsync<{ location_id: string | null }>(
+    "SELECT location_id FROM sessions WHERE id = ?",
+    sessionId,
+  );
   const maxOrderRow = await db.getFirstAsync<{ max_order: number | null }>(
     "SELECT MAX(order_index) AS max_order FROM logged_exercises WHERE session_id = ?",
     sessionId,
   );
   const order = (maxOrderRow?.max_order ?? -1) + 1;
-  const restSeconds = input.restSeconds ?? null;
 
-  await db.runAsync(
-    `INSERT INTO logged_exercises (id, session_id, exercise_name, order_index, rest_seconds, exercise_group_id)
-     VALUES (?, ?, ?, ?, ?, NULL)`,
-    id,
+  return insertLoggedExerciseWithSuggestedSets(
+    db,
     sessionId,
+    order,
     input.exerciseName,
-    order,
-    restSeconds,
+    input.restSeconds ?? null,
+    null,
+    sessionRow?.location_id ?? null,
   );
-
-  const set = await addSet(id, { reps: 10, weight: 0 });
-
-  return {
-    id,
-    sessionId,
-    exerciseName: input.exerciseName,
-    order,
-    restSeconds,
-    exerciseGroupId: null,
-    sets: [set],
-  };
 }
 
 export async function updateLoggedExercise(id: string, patch: LoggedExercisePatch): Promise<void> {
@@ -341,14 +449,44 @@ export async function removeLoggedExercise(id: string): Promise<void> {
 }
 
 // Swaps a logged exercise for a different member of its substitution group
-// (e.g. Barbell Bench -> Dumbbell Bench). The numbers from the old exercise
-// aren't meaningful for the new one, so existing sets are discarded in
-// favor of a single blank default set, same as a freshly added exercise.
-export async function swapLoggedExercise(id: string, exerciseName: string): Promise<WorkoutSet> {
+// (e.g. Barbell Bench -> Dumbbell Bench). Existing sets are discarded in
+// favor of the swapped-in exercise's own historical weight/reps (same
+// lookup as a freshly added exercise), since the old exercise's numbers
+// aren't meaningful for the new one.
+export async function swapLoggedExercise(id: string, exerciseName: string): Promise<WorkoutSet[]> {
   const db = await getDb();
+  const existing = await db.getFirstAsync<LoggedExerciseRow>(
+    "SELECT * FROM logged_exercises WHERE id = ?",
+    id,
+  );
+  if (!existing) {
+    return [];
+  }
+  const sessionRow = await db.getFirstAsync<{ location_id: string | null }>(
+    "SELECT location_id FROM sessions WHERE id = ?",
+    existing.session_id,
+  );
+
   await db.runAsync("UPDATE logged_exercises SET exercise_name = ? WHERE id = ?", exerciseName, id);
   await db.runAsync("DELETE FROM sets WHERE exercise_id = ?", id);
-  return addSet(id, { reps: 10, weight: 0 });
+
+  const suggested = await findSuggestedSets(db, exerciseName, sessionRow?.location_id ?? null);
+  const sourceSets = suggested.length > 0 ? suggested : [{ weight: 0, reps: 0 }];
+
+  const sets: WorkoutSet[] = [];
+  for (let i = 0; i < sourceSets.length; i++) {
+    const setId = generateId();
+    await db.runAsync(
+      "INSERT INTO sets (id, exercise_id, order_index, weight, reps, completed) VALUES (?, ?, ?, ?, ?, 0)",
+      setId,
+      id,
+      i,
+      sourceSets[i].weight,
+      sourceSets[i].reps,
+    );
+    sets.push({ id: setId, exerciseId: id, order: i, weight: sourceSets[i].weight, reps: sourceSets[i].reps, completed: false });
+  }
+  return sets;
 }
 
 // Copies the last set's weight/reps as the default for the new set, per

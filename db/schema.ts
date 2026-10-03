@@ -2,7 +2,7 @@
 // (see client.ts). Bump SCHEMA_VERSION and add a migration when this shape
 // changes.
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export const CREATE_TABLE_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS templates (
@@ -40,14 +40,6 @@ export const CREATE_TABLE_STATEMENTS = [
     exercise_group_id TEXT REFERENCES exercise_groups(id) ON DELETE SET NULL
   );`,
 
-  `CREATE TABLE IF NOT EXISTS template_sets (
-    id TEXT PRIMARY KEY NOT NULL,
-    template_exercise_id TEXT NOT NULL REFERENCES template_exercises(id) ON DELETE CASCADE,
-    order_index INTEGER NOT NULL,
-    reps INTEGER NOT NULL,
-    weight REAL NOT NULL
-  );`,
-
   `CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
@@ -81,7 +73,6 @@ export const CREATE_TABLE_STATEMENTS = [
   );`,
 
   `CREATE INDEX IF NOT EXISTS idx_template_exercises_template_id ON template_exercises(template_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_template_sets_template_exercise_id ON template_sets(template_exercise_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_template_id ON sessions(template_id);`,
   `CREATE INDEX IF NOT EXISTS idx_logged_exercises_session_id ON logged_exercises(session_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sets_exercise_id ON sets(exercise_id);`,
@@ -121,3 +112,10 @@ export const V4_MIGRATION_STATEMENTS = [
   `ALTER TABLE template_exercises ADD COLUMN exercise_group_id TEXT REFERENCES exercise_groups(id) ON DELETE SET NULL;`,
   `ALTER TABLE logged_exercises ADD COLUMN exercise_group_id TEXT REFERENCES exercise_groups(id) ON DELETE SET NULL;`,
 ];
+
+// v5: templates no longer store reps/weight (or even a set count) — those
+// are now always derived at session-start time from location-scoped workout
+// history (see db/sessions.ts findSuggestedSets). A template is just an
+// ordered list of exercise slots. No shipped users yet, so we just drop the
+// table rather than write a data-preserving migration.
+export const V5_MIGRATION_STATEMENTS = [`DROP TABLE IF EXISTS template_sets;`];

@@ -3,9 +3,9 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { ExerciseFormModal, type ExerciseFormValues } from "../../components/ExerciseFormModal";
+import { LocationPickerModal } from "../../components/LocationPickerModal";
 import { NamePromptModal } from "../../components/NamePromptModal";
 import { PickerModal } from "../../components/PickerModal";
-import { SetRow, SetRowHeader } from "../../components/SetRow";
 import { useTheme } from "../../contexts/ThemeContext";
 import { deleteTemplate, startSessionFromTemplate } from "../../db";
 import { useExerciseGroups } from "../../hooks/useExerciseGroups";
@@ -26,9 +26,6 @@ export default function TemplateDetailScreen() {
     addExercise,
     updateExercise,
     removeExercise,
-    addSet,
-    updateSet,
-    removeSet,
   } = useTemplate(id);
   const { groups } = useExerciseGroups();
   const groupsById = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups]);
@@ -37,6 +34,7 @@ export default function TemplateDetailScreen() {
   const [addingExercise, setAddingExercise] = useState(false);
   const [editingExercise, setEditingExercise] = useState<TemplateExercise | null>(null);
   const [starting, setStarting] = useState(false);
+  const [pickingStartLocation, setPickingStartLocation] = useState(false);
   const [linkingGroupFor, setLinkingGroupFor] = useState<TemplateExercise | null>(null);
   const [changingMemberFor, setChangingMemberFor] = useState<TemplateExercise | null>(null);
 
@@ -90,11 +88,6 @@ export default function TemplateDetailScreen() {
     await updateExercise(editingExercise.id, values);
   };
 
-  const handleAddSet = async (exercise: TemplateExercise) => {
-    const lastSet = exercise.sets[exercise.sets.length - 1];
-    await addSet(exercise.id, { reps: lastSet?.reps ?? 10, weight: lastSet?.weight ?? 0 });
-  };
-
   const handleSelectGroup = async (groupId: string) => {
     const exercise = linkingGroupFor;
     setLinkingGroupFor(null);
@@ -126,10 +119,15 @@ export default function TemplateDetailScreen() {
     ]);
   };
 
-  const handleStartWorkout = async () => {
+  const handleStartWorkout = () => {
+    setPickingStartLocation(true);
+  };
+
+  const handleStartLocationSelected = async (locationId: string) => {
+    setPickingStartLocation(false);
     setStarting(true);
     try {
-      const session = await startSessionFromTemplate(template.id);
+      const session = await startSessionFromTemplate(template.id, locationId);
       router.push(`/session/${session.id}`);
     } finally {
       setStarting(false);
@@ -158,6 +156,10 @@ export default function TemplateDetailScreen() {
       >
         <Text style={styles.startButtonText}>{starting ? "Starting…" : "Start Workout"}</Text>
       </Pressable>
+      <Text style={styles.hintText}>
+        Sets, reps, and weight aren't stored on the template — they're loaded from your most
+        recent history for each exercise at whichever location you pick when starting.
+      </Text>
 
       {template.exercises.length === 0 ? (
         <Text style={styles.emptyText}>No exercises yet — add one below.</Text>
@@ -197,23 +199,6 @@ export default function TemplateDetailScreen() {
                 <Text style={styles.groupAction}>+ Link substitution group</Text>
               </Pressable>
             )}
-
-            {exercise.sets.length > 0 && <SetRowHeader />}
-
-            {exercise.sets.map((set, index) => (
-              <SetRow
-                key={set.id}
-                index={index}
-                reps={set.reps}
-                weight={set.weight}
-                onUpdate={(patch) => updateSet(set.id, patch)}
-                onRemove={() => removeSet(set.id)}
-              />
-            ))}
-
-            <Pressable style={styles.addSetButton} onPress={() => handleAddSet(exercise)}>
-              <Text style={styles.addSetButtonText}>+ Add Set</Text>
-            </Pressable>
           </View>
         ))
       )}
@@ -284,6 +269,13 @@ export default function TemplateDetailScreen() {
         onSelect={handleSelectMember}
         onCancel={() => setChangingMemberFor(null)}
       />
+
+      <LocationPickerModal
+        visible={pickingStartLocation}
+        title="Start Workout At"
+        onSelect={handleStartLocationSelected}
+        onCancel={() => setPickingStartLocation(false)}
+      />
     </View>
   );
 }
@@ -315,6 +307,7 @@ function createStyles(colors: ThemeColors) {
     },
     startButtonDisabled: { opacity: 0.6 },
     startButtonText: { color: colors.primaryText, fontWeight: "700", fontSize: 16 },
+    hintText: { fontSize: 12, color: colors.textMuted },
     emptyText: { textAlign: "center", color: colors.textMuted, marginTop: 20 },
     exerciseCard: {
       backgroundColor: colors.surfaceMuted,
@@ -342,12 +335,6 @@ function createStyles(colors: ThemeColors) {
     },
     groupLabel: { flex: 1, fontSize: 12, color: colors.textMuted },
     groupAction: { fontSize: 12, fontWeight: "600", color: colors.primary },
-    addSetButton: {
-      alignSelf: "flex-start",
-      paddingVertical: 6,
-      paddingHorizontal: 10,
-    },
-    addSetButtonText: { color: colors.primary, fontWeight: "600", fontSize: 13 },
     addButton: {
       backgroundColor: colors.primary,
       borderRadius: 10,

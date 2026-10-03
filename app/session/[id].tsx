@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { ExerciseFormModal, type ExerciseFormValues } from "../../components/ExerciseFormModal";
+import { LocationPickerModal } from "../../components/LocationPickerModal";
 import { PickerModal } from "../../components/PickerModal";
 import { RestTimerOverlay } from "../../components/RestTimerOverlay";
 import { SetRow, SetRowHeader } from "../../components/SetRow";
@@ -13,8 +14,6 @@ import { useRestTimer } from "../../hooks/useRestTimer";
 import { useSession } from "../../hooks/useSession";
 import type { ThemeColors } from "../../lib/theme";
 import type { LoggedExercise, WorkoutSet } from "../../types";
-
-const NO_LOCATION_ID = "__none__";
 
 export default function SessionScreen() {
   const { colors } = useTheme();
@@ -65,7 +64,7 @@ export default function SessionScreen() {
 
   const handleSelectLocation = async (locationId: string) => {
     setPickingLocation(false);
-    await setLocation(locationId === NO_LOCATION_ID ? null : locationId);
+    await setLocation(locationId);
   };
 
   const handleSelectSwap = async (exerciseName: string) => {
@@ -225,14 +224,10 @@ export default function SessionScreen() {
 
       <RestTimerOverlay timer={timer} adjustStep={adjustStep} onAdjust={adjust} onDismiss={dismiss} />
 
-      <PickerModal
+      <LocationPickerModal
         visible={pickingLocation}
         title="Session Location"
-        items={[
-          { id: NO_LOCATION_ID, label: "No location" },
-          ...locations.map((location) => ({ id: location.id, label: location.name })),
-        ]}
-        selectedId={session.locationId ?? NO_LOCATION_ID}
+        selectedId={session.locationId}
         onSelect={handleSelectLocation}
         onCancel={() => setPickingLocation(false)}
       />
