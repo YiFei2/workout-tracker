@@ -11,6 +11,15 @@ const DB_NAME = "workout-tracker.db";
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
+async function columnExists(
+  db: SQLite.SQLiteDatabase,
+  table: string,
+  column: string
+): Promise<boolean> {
+  const rows = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table});`);
+  return rows.some((row) => row.name === column);
+}
+
 async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   await db.execAsync("PRAGMA foreign_keys = ON;");
 
@@ -27,13 +36,18 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     await db.execAsync(statement);
   }
 
-  // Fresh installs (currentVersion === 0) already get the v4 columns from
-  // CREATE_TABLE_STATEMENTS above; only pre-existing DBs need the ALTERs,
-  // and only after the tables they target are guaranteed to exist.
-  if (currentVersion > 0 && currentVersion < 4) {
-    for (const statement of V4_MIGRATION_STATEMENTS) {
-      await db.execAsync(statement);
-    }
+  // Check actual column presence rather than gating on currentVersion < 4:
+  // some devices already have user_version bumped to 4 from an earlier dev
+  // build that predates these columns, which would make a version check
+  // wrongly skip the ALTERs below.
+  if (!(await columnExists(db, "sessions", "location_id"))) {
+    await db.execAsync(V4_MIGRATION_STATEMENTS[0]);
+  }
+  if (!(await columnExists(db, "template_exercises", "exercise_group_id"))) {
+    await db.execAsync(V4_MIGRATION_STATEMENTS[1]);
+  }
+  if (!(await columnExists(db, "logged_exercises", "exercise_group_id"))) {
+    await db.execAsync(V4_MIGRATION_STATEMENTS[2]);
   }
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
