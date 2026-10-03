@@ -4,6 +4,7 @@ import {
   CREATE_TABLE_STATEMENTS,
   SCHEMA_VERSION,
   V2_MIGRATION_STATEMENTS,
+  V4_INDEX_STATEMENTS,
   V4_MIGRATION_STATEMENTS,
 } from "./schema";
 
@@ -48,6 +49,10 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   }
   if (!(await columnExists(db, "logged_exercises", "exercise_group_id"))) {
     await db.execAsync(V4_MIGRATION_STATEMENTS[2]);
+  }
+
+  for (const statement of V4_INDEX_STATEMENTS) {
+    await db.execAsync(statement);
   }
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);

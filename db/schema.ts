@@ -86,6 +86,12 @@ export const CREATE_TABLE_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS idx_logged_exercises_session_id ON logged_exercises(session_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sets_exercise_id ON sets(exercise_id);`,
   `CREATE INDEX IF NOT EXISTS idx_exercise_group_members_group_id ON exercise_group_members(group_id);`,
+];
+
+// Index on a v4 column: must only run once location_id is guaranteed to
+// exist (after CREATE_TABLE_STATEMENTS on fresh installs, or after the
+// ALTER in client.ts on upgraded ones) — see client.ts.
+export const V4_INDEX_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS idx_sessions_location_id ON sessions(location_id);`,
 ];
 
