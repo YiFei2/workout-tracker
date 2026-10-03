@@ -1,4 +1,4 @@
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation } from "expo-router";
 import { useEffect, type ReactNode } from "react";
 import { BackHandler, StyleSheet, View } from "react-native";
 
@@ -59,7 +59,7 @@ export function OverlayModal({ visible, onRequestClose, children }: Props) {
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     padding: 24,
   },
 });
