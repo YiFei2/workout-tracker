@@ -169,14 +169,21 @@ Two independent, lightweight flexibility features: tracking weight per gym, and 
 - **Project scaffold boots**: `npm start` (Expo/Metro) starts cleanly with no errors — verified 2026-07-29.
 - **Downgraded to Expo SDK 54**: originally scaffolded on SDK 57, but the installed Expo Go app didn't support it. Downgraded all `expo`/`expo-*`/`react`/`react-native` packages to their SDK 54-compatible versions via `npx expo install --fix`; also removed a stale `expo-status-bar` entry from `app.json`'s `plugins` (that package has no config plugin on SDK 54 and its presence broke `expo export`). Verified 2026-07-30.
 - **DB layer scaffolding**: SQLite schema (`db/schema.ts`) for templates, template_exercises, sessions, logged_exercises, sets; migration runner (`db/client.ts`); full CRUD for `WorkoutTemplate` / `TemplateExercise` (`db/templates.ts`) — create, rename, delete, list-with-exercise-count, get-with-exercises, add/update/remove exercise, reorder. Typechecks and bundles cleanly (`npx expo export`) — verified 2026-07-29.
-- **Template Management screens**: list screen (`app/(tabs)/index.tsx`) with create-via-modal; detail screen (`app/template/[id].tsx`) with rename, delete, add/edit/remove exercise, all backed by `hooks/useTemplates.ts` / `hooks/useTemplate.ts`. Drag-to-reorder intentionally omitted (see Out of Scope). **Manually tested on-device via Expo Go (SDK 54) — all cases passed 2026-07-30.**
-- **Per-set template data model**: `TemplateExercise` no longer stores one uniform (sets count, reps, weight) — each exercise now has an ordered list of `TemplateSet`, individually editable (reps/weight per set), enabling progressive-overload-style templates. Schema migration (`db/schema.ts` v2) drops and recreates `template_exercises`/adds `template_sets` (no shipped users yet, so no data-preserving migration was needed). Typechecks and bundles cleanly — verified 2026-07-30. **Not yet manually re-tested on-device** since this change.
-- **Active Workout Session**: start from a template (copies exercises/sets as a snapshot) or start blank, from the History tab; `app/session/[id].tsx` supports inline edit of weight/reps per set, mark-complete checkbox, add/remove sets and exercises, complete (saves to history) or discard. Backed by `db/sessions.ts` and `hooks/useSession.ts`. Exercise reordering intentionally omitted, same as templates. Typechecks and bundles cleanly — verified 2026-07-30. **Not yet manually tested on-device.**
-- **Rest timer**: adjustable countdown (`components/RestTimerOverlay.tsx`, `hooks/useRestTimer.ts`) triggered when a set is marked complete, using that exercise's `restSeconds`; +/-15s adjust, skip/dismiss, auto-dismisses at 0. Typechecks and bundles cleanly — verified 2026-07-30. **Not yet manually tested on-device.**
-- **Light/dark theme**: persisted Light/Dark/System preference (`contexts/ThemeContext.tsx`, backed by a new `settings` key-value table, `db/settings.ts`, schema v3) drives a shared color-token palette (`lib/theme.ts`) plus React Navigation's header/tab-bar chrome (`app/_layout.tsx`). Every screen and shared component now sources its colors from `useTheme()`. New Settings tab (`app/(tabs)/settings.tsx`) exposes the picker. Typechecks cleanly — verified 2026-07-31. **Not yet manually tested on-device.**
-- **Locations & Exercise Substitution Groups**: schema v4 (`db/schema.ts`/`db/client.ts`) adds `locations`, `exercise_groups`, `exercise_group_members` tables plus nullable `location_id` on `sessions` and nullable `exercise_group_id` on `template_exercises`/`logged_exercises`, applied via `ALTER TABLE` (data-preserving, unlike the v2 drop/recreate) for existing installs. New DB layer (`db/locations.ts`, `db/exerciseGroups.ts`) and hooks (`hooks/useLocations.ts`, `hooks/useExerciseGroups.ts`, `hooks/useExerciseGroup.ts`); `db/sessions.ts` gained `setSessionLocation`/`swapLoggedExercise` (swap resets the exercise to a single blank default set), `db/templates.ts` threads `exerciseGroupId` through exercise CRUD. New generic `components/PickerModal.tsx` powers group/member/location selection. New screens `app/locations/index.tsx`, `app/exercise-groups/index.tsx`, `app/exercise-groups/[id].tsx`, reachable from a new "Data" section in Settings. `app/template/[id].tsx` gained link/change/unlink-group affordances per exercise; `app/session/[id].tsx` gained a location picker and a "⇄ Swap" action per grouped exercise; `app/(tabs)/history.tsx` shows the location name per row. Typechecks and bundles cleanly (`npx expo export`) — verified 2026-08-01. **Not yet manually tested on-device.**
 
-Manual pass needed for the items above before calling them "tested" (same Expo Go setup as before — SDK 54, scan a fresh QR from `npm start`):
+Feature-level test status — **Automated E2E** is Maestro coverage under `.maestro/` (run via the `/e2e-test` skill); **Manual E2E** is testing on-device (Expo Go or a real build) by hand:
+
+| Feature | Automated E2E | Manual E2E |
+|---|---|---|
+| Template Management (CRUD, per-set data model) | ✅ `create-template.yaml`, `template-management-crud.yaml` | ✅ passed 2026-07-30 (predates per-set model; not re-run since) |
+| Active Workout Session (start from template/blank, edit, complete, discard) | ✅ `active-workout-session.yaml`, `workout-history.yaml` | ❌ not yet |
+| Rest timer (+/-15s, skip, auto-dismiss) | ✅ covered within `active-workout-session.yaml` | ❌ not yet |
+| Workout History (list, read-only detail, delete, start blank) | ✅ `workout-history.yaml` | ❌ not yet |
+| Light/dark theme | ❌ no coverage (visual, not practical for Maestro assertions) | ❌ not yet |
+| Locations (add/rename/delete, set on session) | ✅ `locations.yaml` | ❌ not yet |
+| Exercise Substitution Groups (create/edit groups, link/change/unlink, swap mid-session) | ✅ `exercise-substitution-groups.yaml` | ❌ not yet |
+| Schema v4 upgrade path (`ALTER TABLE` against pre-existing data) | ❌ Maestro always starts from `clearState: true`, so this path is untested by it | ❌ not yet |
+
+Manual pass still needed for the ❌ Manual E2E items above (same Expo Go setup as before — SDK 54, scan a fresh QR from `npm start`):
   - [ ] Open an existing template, add a second/third set to an exercise with different reps/weight per set, confirm each persists independently
   - [ ] Set a rest duration on a template exercise (e.g. 30s), start a workout from that template
   - [ ] Mark a set complete, confirm the rest timer overlay appears and counts down
@@ -187,6 +194,7 @@ Manual pass needed for the items above before calling them "tested" (same Expo G
   - [ ] Tap into that history entry, confirm it renders read-only (no edit controls)
   - [ ] Start a blank workout from History, confirm it starts empty and can still be built up and completed
   - [ ] Delete a session from History, confirm it disappears
+  - [ ] Toggle Settings → Light/Dark/System, confirm the whole app (screens, tab bar, header) follows
   - [ ] Settings → Manage Locations: add a location, rename it, delete it, confirm the list updates each time
   - [ ] Settings → Manage Exercise Groups: create a group, add 2-3 member exercises, rename the group, remove a member, delete the group
   - [ ] On a template exercise, tap "+ Link substitution group", pick a group, confirm the exercise name updates to the group's first member and "Substitutes: <group>" shows
