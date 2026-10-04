@@ -1,6 +1,8 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as NavigationBar from 'expo-navigation-bar';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { getDb } from '../db';
@@ -9,6 +11,12 @@ import { UnitProvider } from '../contexts/UnitContext';
 
 function RootLayoutNav() {
   const { scheme, colors } = useTheme();
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setStyle(scheme === 'dark' ? 'light' : 'dark');
+    }
+  }, [scheme]);
 
   const navigationTheme = {
     ...(scheme === 'dark' ? DarkTheme : DefaultTheme),
