@@ -8,7 +8,7 @@ import { LocationPickerModal } from "../../components/LocationPickerModal";
 import { NamePromptModal } from "../../components/NamePromptModal";
 import { PickerModal } from "../../components/PickerModal";
 import { useTheme } from "../../contexts/ThemeContext";
-import { deleteTemplate, startSessionFromTemplate } from "../../db";
+import { addExerciseGroupMember, deleteTemplate, startSessionFromTemplate } from "../../db";
 import { useExerciseGroups } from "../../hooks/useExerciseGroups";
 import { useTemplate } from "../../hooks/useTemplate";
 import type { ThemeColors } from "../../lib/theme";
@@ -29,7 +29,7 @@ export default function TemplateDetailScreen() {
     updateExercise,
     removeExercise,
   } = useTemplate(id);
-  const { groups } = useExerciseGroups();
+  const { groups, refresh: refreshGroups } = useExerciseGroups();
   const groupsById = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups]);
 
   const [renaming, setRenaming] = useState(false);
@@ -95,16 +95,12 @@ export default function TemplateDetailScreen() {
     setLinkingGroupFor(null);
     if (!exercise) return;
     const group = groupsById.get(groupId);
-    const firstMember = group?.members[0];
-    if (!firstMember) {
-      Alert.alert("Empty group", "Add exercises to this group first (Settings → Exercise Groups).");
-      return;
+    const alreadyMember = group?.members.some((member) => member.exerciseId === exercise.exerciseId);
+    if (!alreadyMember) {
+      await addExerciseGroupMember(groupId, exercise.exerciseId);
+      await refreshGroups();
     }
-    await updateExercise(exercise.id, {
-      exerciseGroupId: groupId,
-      exerciseId: firstMember.exerciseId,
-      exerciseName: firstMember.exerciseName,
-    });
+    await updateExercise(exercise.id, { exerciseGroupId: groupId });
   };
 
   const handleSelectMember = async (exerciseId: string) => {
