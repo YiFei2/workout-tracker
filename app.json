@@ -32,6 +32,16 @@
           "enforceContrast": false
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "expo-navigation-bar": {
+        "enforceContrast": false
+      },
+      "eas": {
+        "projectId": "88521087-657b-4ffb-a212-f4c4db88c542"
+      }
+    },
+    "owner": "yifei1"
   }
 }
