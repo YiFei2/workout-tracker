@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, Stack } from "expo-router";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { NamePromptModal } from "../../components/NamePromptModal";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -10,6 +11,7 @@ import type { ThemeColors } from "../../lib/theme";
 export default function ExerciseGroupsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
 
   const { groups, loading, create } = useExerciseGroups();
   const [creating, setCreating] = useState(false);
@@ -42,7 +44,10 @@ export default function ExerciseGroupsScreen() {
         )}
       />
 
-      <Pressable style={styles.fab} onPress={() => setCreating(true)}>
+      <Pressable
+        style={[styles.fab, { marginBottom: 16 + insets.bottom }]}
+        onPress={() => setCreating(true)}
+      >
         <Text style={styles.fabText}>+ New Group</Text>
       </Pressable>
 

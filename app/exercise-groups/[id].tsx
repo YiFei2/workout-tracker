@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ExercisePickerModal } from "../../components/ExercisePickerModal";
 import { NamePromptModal } from "../../components/NamePromptModal";
@@ -11,7 +12,8 @@ import type { ThemeColors } from "../../lib/theme";
 
 export default function ExerciseGroupDetailScreen() {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.bottom), [colors, insets.bottom]);
 
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -139,11 +141,11 @@ export default function ExerciseGroupDetailScreen() {
   );
 }
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, bottomInset: number) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.background },
     container: { flex: 1, backgroundColor: colors.background },
-    scrollContent: { padding: 16, gap: 12, paddingBottom: 40 },
+    scrollContent: { padding: 16, gap: 12, paddingBottom: 40 + bottomInset },
     header: {
       flexDirection: "row",
       justifyContent: "space-between",

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ExerciseFormModal, type ExerciseFormValues } from "../../components/ExerciseFormModal";
 import { LocationPickerModal } from "../../components/LocationPickerModal";
@@ -17,7 +18,8 @@ import type { LoggedExercise, WorkoutSet } from "../../types";
 
 export default function SessionScreen() {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.bottom), [colors, insets.bottom]);
 
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -264,11 +266,11 @@ export default function SessionScreen() {
   );
 }
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, bottomInset: number) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.background },
     container: { flex: 1, backgroundColor: colors.background },
-    scrollContent: { padding: 16, gap: 12, paddingBottom: 40 },
+    scrollContent: { padding: 16, gap: 12, paddingBottom: 40 + bottomInset },
     emptyText: { textAlign: "center", color: colors.textMuted, marginTop: 20 },
     locationRow: {
       alignSelf: "flex-start",

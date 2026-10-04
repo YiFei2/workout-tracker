@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Stack } from "expo-router";
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { NamePromptModal } from "../../components/NamePromptModal";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -11,6 +12,7 @@ import type { Location } from "../../types";
 export default function LocationsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
 
   const { locations, loading, create, rename, remove } = useLocations();
   const [creating, setCreating] = useState(false);
@@ -48,7 +50,10 @@ export default function LocationsScreen() {
         )}
       />
 
-      <Pressable style={styles.fab} onPress={() => setCreating(true)}>
+      <Pressable
+        style={[styles.fab, { marginBottom: 16 + insets.bottom }]}
+        onPress={() => setCreating(true)}
+      >
         <Text style={styles.fabText}>+ Add Location</Text>
       </Pressable>
 
