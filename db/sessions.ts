@@ -43,6 +43,7 @@ interface SessionRow {
   location_id: string | null;
 }
 
+// The raw logged_exercises row — no group info (see LoggedExerciseWithGroupRow).
 interface LoggedExerciseRow {
   id: string;
   session_id: string;
@@ -50,6 +51,11 @@ interface LoggedExerciseRow {
   exercise_name: string;
   order_index: number;
   rest_seconds: number | null;
+}
+
+// logged_exercises joined with the current exercise's group — same live
+// resolution as template_exercises, see db/templates.ts. Only used for reads.
+interface LoggedExerciseWithGroupRow extends LoggedExerciseRow {
   exercise_group_id: string | null;
 }
 
@@ -73,7 +79,7 @@ function toWorkoutSet(row: SetRow): WorkoutSet {
   };
 }
 
-function toLoggedExercise(row: LoggedExerciseRow, sets: WorkoutSet[]): LoggedExercise {
+function toLoggedExercise(row: LoggedExerciseWithGroupRow, sets: WorkoutSet[]): LoggedExercise {
   return {
     id: row.id,
     sessionId: row.session_id,
@@ -148,20 +154,23 @@ async function insertLoggedExerciseWithSuggestedSets(
   exerciseId: string,
   exerciseName: string,
   restSeconds: number | null,
-  exerciseGroupId: string | null,
   locationId: string | null,
 ): Promise<LoggedExercise> {
   const loggedExerciseId = generateId();
   await db.runAsync(
-    `INSERT INTO logged_exercises (id, session_id, exercise_id, exercise_name, order_index, rest_seconds, exercise_group_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO logged_exercises (id, session_id, exercise_id, exercise_name, order_index, rest_seconds)
+     VALUES (?, ?, ?, ?, ?, ?)`,
     loggedExerciseId,
     sessionId,
     exerciseId,
     exerciseName,
     order,
     restSeconds,
-    exerciseGroupId,
+  );
+
+  const exerciseRow = await db.getFirstAsync<{ group_id: string | null }>(
+    "SELECT group_id FROM exercises WHERE id = ?",
+    exerciseId,
   );
 
   const suggested = await findSuggestedSets(db, exerciseId, locationId);
@@ -188,7 +197,7 @@ async function insertLoggedExerciseWithSuggestedSets(
     exerciseName,
     order,
     restSeconds,
-    exerciseGroupId,
+    exerciseGroupId: exerciseRow?.group_id ?? null,
     sets,
   };
 }
@@ -237,8 +246,12 @@ export async function getSession(id: string): Promise<WorkoutSession | null> {
   if (!sessionRow) {
     return null;
   }
-  const exerciseRows = await db.getAllAsync<LoggedExerciseRow>(
-    "SELECT * FROM logged_exercises WHERE session_id = ? ORDER BY order_index ASC",
+  const exerciseRows = await db.getAllAsync<LoggedExerciseWithGroupRow>(
+    `SELECT le.*, e.group_id AS exercise_group_id
+     FROM logged_exercises le
+     JOIN exercises e ON e.id = le.exercise_id
+     WHERE le.session_id = ?
+     ORDER BY le.order_index ASC`,
     id,
   );
   const setRows = await db.getAllAsync<SetRow>(
@@ -332,7 +345,6 @@ export async function startSessionFromTemplate(
         templateExercise.exerciseId,
         templateExercise.exerciseName,
         templateExercise.restSeconds,
-        templateExercise.exerciseGroupId,
         locationId,
       ),
     );
@@ -424,7 +436,6 @@ export async function addLoggedExercise(
     input.exerciseId,
     input.exerciseName,
     input.restSeconds ?? null,
-    null,
     sessionRow?.location_id ?? null,
   );
 }

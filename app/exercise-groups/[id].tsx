@@ -56,10 +56,10 @@ export default function ExerciseGroupDetailScreen() {
     );
   };
 
-  const handleRemoveMember = (memberId: string, exerciseName: string) => {
+  const handleRemoveMember = (exerciseId: string, exerciseName: string) => {
     Alert.alert("Remove exercise", `Remove "${exerciseName}" from this group?`, [
       { text: "Cancel", style: "cancel" },
-      { text: "Remove", style: "destructive", onPress: () => removeMember(memberId) },
+      { text: "Remove", style: "destructive", onPress: () => removeMember(exerciseId) },
     ]);
   };
 
@@ -97,10 +97,10 @@ export default function ExerciseGroupDetailScreen() {
           <View style={styles.memberList}>
             {group.members.map((member) => (
               <View key={member.id} style={styles.memberRow}>
-                <Text style={styles.memberName}>{member.exerciseName}</Text>
+                <Text style={styles.memberName}>{member.name}</Text>
                 <Pressable
                   style={styles.removeButton}
-                  onPress={() => handleRemoveMember(member.id, member.exerciseName)}
+                  onPress={() => handleRemoveMember(member.id, member.name)}
                   hitSlop={8}
                 >
                   <Text style={styles.removeButtonText}>✕</Text>

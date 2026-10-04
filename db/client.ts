@@ -8,6 +8,8 @@ import {
   V4_MIGRATION_STATEMENTS,
   V5_MIGRATION_STATEMENTS,
   V6_MIGRATION_STATEMENTS,
+  V7_INDEX_STATEMENTS,
+  V7_MIGRATION_STATEMENTS,
 } from "./schema";
 import { seedInitialData } from "./seed";
 
@@ -22,6 +24,14 @@ async function columnExists(
 ): Promise<boolean> {
   const rows = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table});`);
   return rows.some((row) => row.name === column);
+}
+
+async function tableExists(db: SQLite.SQLiteDatabase, table: string): Promise<boolean> {
+  const row = await db.getFirstAsync<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?;",
+    table,
+  );
+  return row !== null;
 }
 
 async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -55,18 +65,36 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   // Check actual column presence rather than gating on currentVersion < 4:
   // some devices already have user_version bumped to 4 from an earlier dev
   // build that predates these columns, which would make a version check
-  // wrongly skip the ALTERs below.
+  // wrongly skip the ALTER below.
   if (!(await columnExists(db, "sessions", "location_id"))) {
     await db.execAsync(V4_MIGRATION_STATEMENTS[0]);
   }
-  if (!(await columnExists(db, "template_exercises", "exercise_group_id"))) {
-    await db.execAsync(V4_MIGRATION_STATEMENTS[1]);
-  }
-  if (!(await columnExists(db, "logged_exercises", "exercise_group_id"))) {
-    await db.execAsync(V4_MIGRATION_STATEMENTS[2]);
-  }
 
   for (const statement of V4_INDEX_STATEMENTS) {
+    await db.execAsync(statement);
+  }
+
+  // v7: same column/table-presence guarding as v4 above, for the same
+  // reason. Order matters: exercises.group_id must exist before the
+  // backfill UPDATE in V7_MIGRATION_STATEMENTS reads/writes it, and the
+  // join table must still exist when that backfill runs.
+  if (!(await columnExists(db, "exercises", "group_id"))) {
+    await db.execAsync(
+      "ALTER TABLE exercises ADD COLUMN group_id TEXT REFERENCES exercise_groups(id) ON DELETE SET NULL;",
+    );
+  }
+  if (await tableExists(db, "exercise_group_members")) {
+    for (const statement of V7_MIGRATION_STATEMENTS) {
+      await db.execAsync(statement);
+    }
+  }
+  if (await columnExists(db, "template_exercises", "exercise_group_id")) {
+    await db.execAsync("ALTER TABLE template_exercises DROP COLUMN exercise_group_id;");
+  }
+  if (await columnExists(db, "logged_exercises", "exercise_group_id")) {
+    await db.execAsync("ALTER TABLE logged_exercises DROP COLUMN exercise_group_id;");
+  }
+  for (const statement of V7_INDEX_STATEMENTS) {
     await db.execAsync(statement);
   }
 

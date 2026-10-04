@@ -2,13 +2,20 @@
 // (see client.ts). Bump SCHEMA_VERSION and add a migration when this shape
 // changes.
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export const CREATE_TABLE_STATEMENTS = [
-  `CREATE TABLE IF NOT EXISTS exercises (
+  `CREATE TABLE IF NOT EXISTS exercise_groups (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     created_at TEXT NOT NULL
+  );`,
+
+  `CREATE TABLE IF NOT EXISTS exercises (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    group_id TEXT REFERENCES exercise_groups(id) ON DELETE SET NULL
   );`,
 
   `CREATE TABLE IF NOT EXISTS templates (
@@ -16,19 +23,6 @@ export const CREATE_TABLE_STATEMENTS = [
     name TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
-  );`,
-
-  `CREATE TABLE IF NOT EXISTS exercise_groups (
-    id TEXT PRIMARY KEY NOT NULL,
-    name TEXT NOT NULL,
-    created_at TEXT NOT NULL
-  );`,
-
-  `CREATE TABLE IF NOT EXISTS exercise_group_members (
-    id TEXT PRIMARY KEY NOT NULL,
-    group_id TEXT NOT NULL REFERENCES exercise_groups(id) ON DELETE CASCADE,
-    exercise_id TEXT NOT NULL REFERENCES exercises(id),
-    order_index INTEGER NOT NULL
   );`,
 
   `CREATE TABLE IF NOT EXISTS locations (
@@ -43,8 +37,7 @@ export const CREATE_TABLE_STATEMENTS = [
     exercise_id TEXT NOT NULL REFERENCES exercises(id),
     exercise_name TEXT NOT NULL,
     order_index INTEGER NOT NULL,
-    rest_seconds INTEGER,
-    exercise_group_id TEXT REFERENCES exercise_groups(id) ON DELETE SET NULL
+    rest_seconds INTEGER
   );`,
 
   `CREATE TABLE IF NOT EXISTS sessions (
@@ -62,8 +55,7 @@ export const CREATE_TABLE_STATEMENTS = [
     exercise_id TEXT NOT NULL REFERENCES exercises(id),
     exercise_name TEXT NOT NULL,
     order_index INTEGER NOT NULL,
-    rest_seconds INTEGER,
-    exercise_group_id TEXT REFERENCES exercise_groups(id) ON DELETE SET NULL
+    rest_seconds INTEGER
   );`,
 
   `CREATE TABLE IF NOT EXISTS sets (
@@ -84,7 +76,6 @@ export const CREATE_TABLE_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS idx_sessions_template_id ON sessions(template_id);`,
   `CREATE INDEX IF NOT EXISTS idx_logged_exercises_session_id ON logged_exercises(session_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sets_exercise_id ON sets(exercise_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_exercise_group_members_group_id ON exercise_group_members(group_id);`,
   `CREATE INDEX IF NOT EXISTS idx_template_exercises_exercise_id ON template_exercises(exercise_id);`,
   `CREATE INDEX IF NOT EXISTS idx_logged_exercises_exercise_id ON logged_exercises(exercise_id);`,
 ];
@@ -94,6 +85,13 @@ export const CREATE_TABLE_STATEMENTS = [
 // ALTER in client.ts on upgraded ones) — see client.ts.
 export const V4_INDEX_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS idx_sessions_location_id ON sessions(location_id);`,
+];
+
+// Index on a v7 column: must only run once exercises.group_id is guaranteed
+// to exist (after CREATE_TABLE_STATEMENTS on fresh installs, or after the
+// ALTER in client.ts on upgraded ones) — same reasoning as V4_INDEX_STATEMENTS.
+export const V7_INDEX_STATEMENTS = [
+  `CREATE INDEX IF NOT EXISTS idx_exercises_group_id ON exercises(group_id);`,
 ];
 
 // v2: template_exercises moved from a single (defaultSets, defaultReps,
@@ -117,10 +115,10 @@ export const V2_MIGRATION_STATEMENTS = [
 // columns for free from CREATE_TABLE_STATEMENTS above (which already
 // includes them), so these statements only need to run when upgrading an
 // existing (currentVersion > 0) database — see client.ts.
+// (The template_exercises/logged_exercises exercise_group_id ALTERs that
+// originally lived here were removed in v7 along with the columns.)
 export const V4_MIGRATION_STATEMENTS = [
   `ALTER TABLE sessions ADD COLUMN location_id TEXT REFERENCES locations(id) ON DELETE SET NULL;`,
-  `ALTER TABLE template_exercises ADD COLUMN exercise_group_id TEXT REFERENCES exercise_groups(id) ON DELETE SET NULL;`,
-  `ALTER TABLE logged_exercises ADD COLUMN exercise_group_id TEXT REFERENCES exercise_groups(id) ON DELETE SET NULL;`,
 ];
 
 // v5: templates no longer store reps/weight (or even a set count) — those
@@ -150,4 +148,24 @@ export const V6_MIGRATION_STATEMENTS = [
   `DROP TABLE IF EXISTS exercise_groups;`,
   `DROP TABLE IF EXISTS locations;`,
   `DROP TABLE IF EXISTS exercises;`,
+];
+
+// v7: the exercise_group_members join table and the exercise_group_id
+// columns on template_exercises/logged_exercises are removed in favor of a
+// single nullable exercises.group_id — an exercise belongs to at most one
+// group, so the join table was unneeded indirection, and having a second
+// copy of the link on every template/session slot meant the two could (and
+// did) drift out of sync. The "Substitutes" link is now always resolved
+// live via a join on the exercise's current group — see db/templates.ts /
+// db/sessions.ts. Unlike v2/v5/v6, this carries real on-device group
+// membership worth keeping, so existing exercise_group_members rows are
+// backfilled into exercises.group_id before the join table is dropped
+// (first group wins for the rare case an exercise ended up in more than
+// one, since that's no longer representable). See client.ts for the
+// column-presence-guarded ALTERs that accompany these statements.
+export const V7_MIGRATION_STATEMENTS = [
+  `UPDATE exercises SET group_id = (
+      SELECT group_id FROM exercise_group_members WHERE exercise_id = exercises.id LIMIT 1
+   ) WHERE id IN (SELECT exercise_id FROM exercise_group_members);`,
+  `DROP TABLE IF EXISTS exercise_group_members;`,
 ];

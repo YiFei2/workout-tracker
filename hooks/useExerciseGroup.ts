@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import {
-  addExerciseGroupMember,
-  getExerciseGroup,
-  removeExerciseGroupMember,
-  renameExerciseGroup,
-} from "../db";
+import { getExerciseGroup, renameExerciseGroup, setExerciseGroup } from "../db";
 import type { ExerciseGroup } from "../types";
 
 export function useExerciseGroup(id: string) {
@@ -36,15 +31,15 @@ export function useExerciseGroup(id: string) {
 
   const addMember = useCallback(
     async (exerciseId: string) => {
-      await addExerciseGroupMember(id, exerciseId);
+      await setExerciseGroup(exerciseId, id);
       await refresh();
     },
     [id, refresh],
   );
 
   const removeMember = useCallback(
-    async (memberId: string) => {
-      await removeExerciseGroupMember(memberId);
+    async (exerciseId: string) => {
+      await setExerciseGroup(exerciseId, null);
       await refresh();
     },
     [refresh],

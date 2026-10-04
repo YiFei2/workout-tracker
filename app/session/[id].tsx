@@ -73,9 +73,9 @@ export default function SessionScreen() {
     const exercise = swappingExercise;
     setSwappingExercise(null);
     if (!exercise || !exercise.exerciseGroupId || exerciseId === exercise.exerciseId) return;
-    const member = groupsById.get(exercise.exerciseGroupId)?.members.find((m) => m.exerciseId === exerciseId);
+    const member = groupsById.get(exercise.exerciseGroupId)?.members.find((m) => m.id === exerciseId);
     if (!member) return;
-    await swapExercise(exercise.id, member.exerciseId, member.exerciseName);
+    await swapExercise(exercise.id, member.id, member.name);
   };
 
   const handleToggleCompleted = async (exercise: LoggedExercise, set: WorkoutSet) => {
@@ -253,8 +253,8 @@ export default function SessionScreen() {
         items={
           swappingExercise?.exerciseGroupId
             ? (groupsById.get(swappingExercise.exerciseGroupId)?.members ?? []).map((member) => ({
-                id: member.exerciseId,
-                label: member.exerciseName,
+                id: member.id,
+                label: member.name,
               }))
             : []
         }

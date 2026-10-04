@@ -142,8 +142,8 @@ export async function seedInitialData(db: SQLiteDatabase): Promise<void> {
         throw new Error(`Seed template "${template.name}" references unknown exercise "${exerciseName}"`);
       }
       await db.runAsync(
-        `INSERT INTO template_exercises (id, template_id, exercise_id, exercise_name, order_index, rest_seconds, exercise_group_id)
-         VALUES (?, ?, ?, ?, ?, ?, NULL)`,
+        `INSERT INTO template_exercises (id, template_id, exercise_id, exercise_name, order_index, rest_seconds)
+         VALUES (?, ?, ?, ?, ?, ?)`,
         generateId(),
         templateId,
         exerciseId,

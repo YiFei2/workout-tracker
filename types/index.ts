@@ -15,7 +15,7 @@ export interface TemplateExercise {
   exerciseName: string;
   order: number;
   restSeconds: number | null;
-  /** Substitution group this slot is defined by, if any — see ExerciseGroup. */
+  /** Exercise.groupId of the current exerciseId, resolved live via join — not stored on this row. */
   exerciseGroupId: string | null;
 }
 
@@ -46,7 +46,7 @@ export interface LoggedExercise {
   exerciseName: string;
   order: number;
   restSeconds: number | null;
-  /** Substitution group this exercise belongs to, if any (inherited from the template at session start). */
+  /** Exercise.groupId of the current exerciseId, resolved live via join — not stored on this row. */
   exerciseGroupId: string | null;
   sets: WorkoutSet[];
 }
@@ -70,21 +70,14 @@ export interface ExerciseGroup {
   id: string;
   name: string;
   createdAt: string;
-  /** Interchangeable exercises, e.g. Barbell Bench Press / Dumbbell Bench Press / Machine Chest Press. */
-  members: ExerciseGroupMember[];
-}
-
-export interface ExerciseGroupMember {
-  id: string;
-  groupId: string;
-  exerciseId: string;
-  /** Exercise.name resolved live via join — group composition isn't a historical log, so this always reflects the exercise's current name. */
-  exerciseName: string;
-  order: number;
+  /** Interchangeable exercises, e.g. Barbell Bench Press / Dumbbell Bench Press / Machine Chest Press — sorted by name. */
+  members: Exercise[];
 }
 
 export interface Exercise {
   id: string;
   name: string;
   createdAt: string;
+  /** Substitution group this exercise belongs to, if any. An exercise belongs to at most one group. */
+  groupId: string | null;
 }

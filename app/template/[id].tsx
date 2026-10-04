@@ -8,7 +8,7 @@ import { LocationPickerModal } from "../../components/LocationPickerModal";
 import { NamePromptModal } from "../../components/NamePromptModal";
 import { PickerModal } from "../../components/PickerModal";
 import { useTheme } from "../../contexts/ThemeContext";
-import { addExerciseGroupMember, deleteTemplate, startSessionFromTemplate } from "../../db";
+import { deleteTemplate, setExerciseGroup, startSessionFromTemplate } from "../../db";
 import { useExerciseGroups } from "../../hooks/useExerciseGroups";
 import { useTemplate } from "../../hooks/useTemplate";
 import type { ThemeColors } from "../../lib/theme";
@@ -28,6 +28,7 @@ export default function TemplateDetailScreen() {
     addExercise,
     updateExercise,
     removeExercise,
+    refresh: refreshTemplate,
   } = useTemplate(id);
   const { groups, refresh: refreshGroups } = useExerciseGroups();
   const groupsById = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups]);
@@ -94,33 +95,37 @@ export default function TemplateDetailScreen() {
     const exercise = linkingGroupFor;
     setLinkingGroupFor(null);
     if (!exercise) return;
-    const group = groupsById.get(groupId);
-    const alreadyMember = group?.members.some((member) => member.exerciseId === exercise.exerciseId);
-    if (!alreadyMember) {
-      await addExerciseGroupMember(groupId, exercise.exerciseId);
-      await refreshGroups();
-    }
-    await updateExercise(exercise.id, { exerciseGroupId: groupId });
+    await setExerciseGroup(exercise.exerciseId, groupId);
+    await refreshGroups();
+    await refreshTemplate();
   };
 
   const handleSelectMember = async (exerciseId: string) => {
     const exercise = changingMemberFor;
     setChangingMemberFor(null);
     if (!exercise || !exercise.exerciseGroupId) return;
-    const member = groupsById.get(exercise.exerciseGroupId)?.members.find((m) => m.exerciseId === exerciseId);
+    const member = groupsById.get(exercise.exerciseGroupId)?.members.find((m) => m.id === exerciseId);
     if (!member) return;
-    await updateExercise(exercise.id, { exerciseId: member.exerciseId, exerciseName: member.exerciseName });
+    await updateExercise(exercise.id, { exerciseId: member.id, exerciseName: member.name });
   };
 
   const handleUnlinkGroup = (exercise: TemplateExercise) => {
-    Alert.alert("Unlink group", `Stop linking "${exercise.exerciseName}" to a substitution group?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Unlink",
-        style: "destructive",
-        onPress: () => updateExercise(exercise.id, { exerciseGroupId: null }),
-      },
-    ]);
+    Alert.alert(
+      "Unlink group",
+      `Remove "${exercise.exerciseName}" from its substitution group? It will no longer be swappable with the other exercises in that group, anywhere it's used.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Unlink",
+          style: "destructive",
+          onPress: async () => {
+            await setExerciseGroup(exercise.exerciseId, null);
+            await refreshGroups();
+            await refreshTemplate();
+          },
+        },
+      ],
+    );
   };
 
   const handleStartWorkout = () => {
@@ -288,8 +293,8 @@ export default function TemplateDetailScreen() {
         items={
           changingMemberFor?.exerciseGroupId
             ? (groupsById.get(changingMemberFor.exerciseGroupId)?.members ?? []).map((member) => ({
-                id: member.exerciseId,
-                label: member.exerciseName,
+                id: member.id,
+                label: member.name,
               }))
             : []
         }

@@ -14,14 +14,12 @@ export interface NewTemplateExerciseInput {
   exerciseId: string;
   exerciseName: string;
   restSeconds?: number | null;
-  exerciseGroupId?: string | null;
 }
 
 export interface TemplateExercisePatch {
   exerciseId?: string;
   exerciseName?: string;
   restSeconds?: number | null;
-  exerciseGroupId?: string | null;
 }
 
 interface TemplateRow {
@@ -31,6 +29,7 @@ interface TemplateRow {
   updated_at: string;
 }
 
+// The raw template_exercises row — no group info (see TemplateExerciseWithGroupRow).
 interface TemplateExerciseRow {
   id: string;
   template_id: string;
@@ -38,10 +37,17 @@ interface TemplateExerciseRow {
   exercise_name: string;
   order_index: number;
   rest_seconds: number | null;
+}
+
+// template_exercises joined with the current exercise's group — the
+// substitution link is resolved live from exercises.group_id rather than
+// stored per slot, so it always reflects the exercise's current group even
+// if that changed after this slot was created. Only used for reads.
+interface TemplateExerciseWithGroupRow extends TemplateExerciseRow {
   exercise_group_id: string | null;
 }
 
-function toTemplateExercise(row: TemplateExerciseRow): TemplateExercise {
+function toTemplateExercise(row: TemplateExerciseWithGroupRow): TemplateExercise {
   return {
     id: row.id,
     templateId: row.template_id,
@@ -86,8 +92,12 @@ export async function getTemplate(id: string): Promise<WorkoutTemplate | null> {
   if (!templateRow) {
     return null;
   }
-  const exerciseRows = await db.getAllAsync<TemplateExerciseRow>(
-    "SELECT * FROM template_exercises WHERE template_id = ? ORDER BY order_index ASC",
+  const exerciseRows = await db.getAllAsync<TemplateExerciseWithGroupRow>(
+    `SELECT te.*, e.group_id AS exercise_group_id
+     FROM template_exercises te
+     JOIN exercises e ON e.id = te.exercise_id
+     WHERE te.template_id = ?
+     ORDER BY te.order_index ASC`,
     id,
   );
 
@@ -143,20 +153,23 @@ export async function addTemplateExercise(
   );
   const order = (maxOrderRow?.max_order ?? -1) + 1;
   const restSeconds = input.restSeconds ?? null;
-  const exerciseGroupId = input.exerciseGroupId ?? null;
 
   await db.runAsync(
-    `INSERT INTO template_exercises (id, template_id, exercise_id, exercise_name, order_index, rest_seconds, exercise_group_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO template_exercises (id, template_id, exercise_id, exercise_name, order_index, rest_seconds)
+     VALUES (?, ?, ?, ?, ?, ?)`,
     id,
     templateId,
     input.exerciseId,
     input.exerciseName,
     order,
     restSeconds,
-    exerciseGroupId,
   );
   await touchTemplate(db, templateId);
+
+  const exerciseRow = await db.getFirstAsync<{ group_id: string | null }>(
+    "SELECT group_id FROM exercises WHERE id = ?",
+    input.exerciseId,
+  );
 
   return {
     id,
@@ -165,7 +178,7 @@ export async function addTemplateExercise(
     exerciseName: input.exerciseName,
     order,
     restSeconds,
-    exerciseGroupId,
+    exerciseGroupId: exerciseRow?.group_id ?? null,
   };
 }
 
@@ -186,16 +199,13 @@ export async function updateTemplateExercise(
     exercise_id: patch.exerciseId ?? existing.exercise_id,
     exercise_name: patch.exerciseName ?? existing.exercise_name,
     rest_seconds: patch.restSeconds !== undefined ? patch.restSeconds : existing.rest_seconds,
-    exercise_group_id:
-      patch.exerciseGroupId !== undefined ? patch.exerciseGroupId : existing.exercise_group_id,
   };
 
   await db.runAsync(
-    "UPDATE template_exercises SET exercise_id = ?, exercise_name = ?, rest_seconds = ?, exercise_group_id = ? WHERE id = ?",
+    "UPDATE template_exercises SET exercise_id = ?, exercise_name = ?, rest_seconds = ? WHERE id = ?",
     next.exercise_id,
     next.exercise_name,
     next.rest_seconds,
-    next.exercise_group_id,
     id,
   );
   await touchTemplate(db, existing.template_id);

@@ -6,10 +6,11 @@ interface ExerciseRow {
   id: string;
   name: string;
   created_at: string;
+  group_id: string | null;
 }
 
 function toExercise(row: ExerciseRow): Exercise {
-  return { id: row.id, name: row.name, createdAt: row.created_at };
+  return { id: row.id, name: row.name, createdAt: row.created_at, groupId: row.group_id };
 }
 
 export async function listExercises(): Promise<Exercise[]> {
@@ -45,7 +46,7 @@ export async function createExercise(name: string): Promise<Exercise> {
     trimmed,
     now,
   );
-  return { id, name: trimmed, createdAt: now };
+  return { id, name: trimmed, createdAt: now, groupId: null };
 }
 
 export async function renameExercise(id: string, name: string): Promise<void> {

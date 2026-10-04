@@ -1,8 +1,6 @@
-import type { SQLiteDatabase } from "expo-sqlite";
-
 import { getDb } from "./client";
 import { generateId } from "./ids";
-import type { ExerciseGroup, ExerciseGroupMember } from "../types";
+import type { Exercise, ExerciseGroup } from "../types";
 
 export interface ExerciseGroupSummary {
   id: string;
@@ -16,38 +14,19 @@ interface ExerciseGroupRow {
   created_at: string;
 }
 
-interface ExerciseGroupMemberRow {
+interface ExerciseRow {
   id: string;
-  group_id: string;
-  exercise_id: string;
-  exercise_name: string;
-  order_index: number;
+  name: string;
+  created_at: string;
+  group_id: string | null;
 }
 
-const MEMBER_SELECT = `SELECT egm.id, egm.group_id, egm.exercise_id, e.name AS exercise_name, egm.order_index
-     FROM exercise_group_members egm
-     JOIN exercises e ON e.id = egm.exercise_id`;
-
-function toMember(row: ExerciseGroupMemberRow): ExerciseGroupMember {
-  return {
-    id: row.id,
-    groupId: row.group_id,
-    exerciseId: row.exercise_id,
-    exerciseName: row.exercise_name,
-    order: row.order_index,
-  };
+function toExercise(row: ExerciseRow): Exercise {
+  return { id: row.id, name: row.name, createdAt: row.created_at, groupId: row.group_id };
 }
 
-function toGroup(row: ExerciseGroupRow, members: ExerciseGroupMember[]): ExerciseGroup {
+function toGroup(row: ExerciseGroupRow, members: Exercise[]): ExerciseGroup {
   return { id: row.id, name: row.name, createdAt: row.created_at, members };
-}
-
-async function loadMembers(db: SQLiteDatabase, groupId: string): Promise<ExerciseGroupMember[]> {
-  const rows = await db.getAllAsync<ExerciseGroupMemberRow>(
-    `${MEMBER_SELECT} WHERE egm.group_id = ? ORDER BY egm.order_index ASC`,
-    groupId,
-  );
-  return rows.map(toMember);
 }
 
 export async function listExerciseGroups(): Promise<ExerciseGroup[]> {
@@ -55,17 +34,18 @@ export async function listExerciseGroups(): Promise<ExerciseGroup[]> {
   const groupRows = await db.getAllAsync<ExerciseGroupRow>(
     "SELECT * FROM exercise_groups ORDER BY name ASC",
   );
-  const memberRows = await db.getAllAsync<ExerciseGroupMemberRow>(
-    `${MEMBER_SELECT} ORDER BY egm.order_index ASC`,
+  const memberRows = await db.getAllAsync<ExerciseRow>(
+    "SELECT * FROM exercises WHERE group_id IS NOT NULL ORDER BY name ASC",
   );
-  const membersByGroup = new Map<string, ExerciseGroupMember[]>();
+  const membersByGroup = new Map<string, Exercise[]>();
   for (const memberRow of memberRows) {
-    const member = toMember(memberRow);
-    const existing = membersByGroup.get(member.groupId);
+    const member = toExercise(memberRow);
+    const groupId = memberRow.group_id as string;
+    const existing = membersByGroup.get(groupId);
     if (existing) {
       existing.push(member);
     } else {
-      membersByGroup.set(member.groupId, [member]);
+      membersByGroup.set(groupId, [member]);
     }
   }
   return groupRows.map((row) => toGroup(row, membersByGroup.get(row.id) ?? []));
@@ -80,7 +60,11 @@ export async function getExerciseGroup(id: string): Promise<ExerciseGroup | null
   if (!row) {
     return null;
   }
-  return toGroup(row, await loadMembers(db, id));
+  const memberRows = await db.getAllAsync<ExerciseRow>(
+    "SELECT * FROM exercises WHERE group_id = ? ORDER BY name ASC",
+    id,
+  );
+  return toGroup(row, memberRows.map(toExercise));
 }
 
 export async function createExerciseGroup(name: string): Promise<ExerciseGroup> {
@@ -103,38 +87,15 @@ export async function renameExerciseGroup(id: string, name: string): Promise<voi
 
 export async function deleteExerciseGroup(id: string): Promise<void> {
   const db = await getDb();
-  // Templates/logged exercises reference groups loosely (ON DELETE SET
-  // NULL), so they just lose their substitution link, keeping their
-  // current exercise name as plain text.
+  // Exercises keep their own identity; deleting the group just clears their
+  // link (ON DELETE SET NULL on exercises.group_id).
   await db.runAsync("DELETE FROM exercise_groups WHERE id = ?", id);
 }
 
-export async function addExerciseGroupMember(
-  groupId: string,
-  exerciseId: string,
-): Promise<ExerciseGroupMember> {
+// Sets (or clears, if groupId is null) the substitution group an exercise
+// belongs to. An exercise belongs to at most one group, so assigning a new
+// one silently moves it out of whichever group it was in before.
+export async function setExerciseGroup(exerciseId: string, groupId: string | null): Promise<void> {
   const db = await getDb();
-  const id = generateId();
-  const maxOrderRow = await db.getFirstAsync<{ max_order: number | null }>(
-    "SELECT MAX(order_index) AS max_order FROM exercise_group_members WHERE group_id = ?",
-    groupId,
-  );
-  const order = (maxOrderRow?.max_order ?? -1) + 1;
-  await db.runAsync(
-    "INSERT INTO exercise_group_members (id, group_id, exercise_id, order_index) VALUES (?, ?, ?, ?)",
-    id,
-    groupId,
-    exerciseId,
-    order,
-  );
-  const exerciseRow = await db.getFirstAsync<{ name: string }>(
-    "SELECT name FROM exercises WHERE id = ?",
-    exerciseId,
-  );
-  return { id, groupId, exerciseId, exerciseName: exerciseRow?.name ?? "", order };
-}
-
-export async function removeExerciseGroupMember(id: string): Promise<void> {
-  const db = await getDb();
-  await db.runAsync("DELETE FROM exercise_group_members WHERE id = ?", id);
+  await db.runAsync("UPDATE exercises SET group_id = ? WHERE id = ?", groupId, exerciseId);
 }
