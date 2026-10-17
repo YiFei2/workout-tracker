@@ -202,6 +202,34 @@ async function insertLoggedExerciseWithSuggestedSets(
   };
 }
 
+// Most recent location a session was started from this template at, used to
+// default the template screen's preview-location selector so it shows
+// useful data without an extra tap. Null if the template's never been
+// started, or every session that used it had no location (shouldn't happen
+// in practice — see the "Location is required" note on startSessionFromTemplate).
+export async function getMostRecentLocationForTemplate(templateId: string): Promise<string | null> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ location_id: string | null }>(
+    `SELECT location_id FROM sessions
+     WHERE template_id = ? AND location_id IS NOT NULL
+     ORDER BY started_at DESC LIMIT 1`,
+    templateId,
+  );
+  return row?.location_id ?? null;
+}
+
+// Read-only lookup of what a freshly added/swapped-in instance of this
+// exercise would be pre-filled with, for previewing on the template screen
+// before a session exists — same lookup `insertLoggedExerciseWithSuggestedSets`
+// uses, just without writing anything.
+export async function getPreviewSets(
+  exerciseId: string,
+  locationId: string | null,
+): Promise<{ weight: number; reps: number }[]> {
+  const db = await getDb();
+  return findSuggestedSets(db, exerciseId, locationId);
+}
+
 export async function listSessions(): Promise<SessionSummary[]> {
   const db = await getDb();
   const rows = await db.getAllAsync<{

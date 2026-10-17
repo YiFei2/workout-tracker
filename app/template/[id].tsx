@@ -1,18 +1,27 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ExerciseFormModal, type ExerciseFormValues } from "../../components/ExerciseFormModal";
+import { GroupPickerModal } from "../../components/GroupPickerModal";
 import { LocationPickerModal } from "../../components/LocationPickerModal";
 import { NamePromptModal } from "../../components/NamePromptModal";
 import { PickerModal } from "../../components/PickerModal";
+import { SetRow, SetRowHeader } from "../../components/SetRow";
 import { useTheme } from "../../contexts/ThemeContext";
-import { deleteTemplate, setExerciseGroup, startSessionFromTemplate } from "../../db";
+import {
+  deleteTemplate,
+  getMostRecentLocationForTemplate,
+  getPreviewSets,
+  setExerciseGroup,
+  startSessionFromTemplate,
+} from "../../db";
 import { useExerciseGroups } from "../../hooks/useExerciseGroups";
+import { useLocations } from "../../hooks/useLocations";
 import { useTemplate } from "../../hooks/useTemplate";
 import type { ThemeColors } from "../../lib/theme";
-import type { TemplateExercise } from "../../types";
+import type { ExerciseGroup, TemplateExercise } from "../../types";
 
 export default function TemplateDetailScreen() {
   const { colors } = useTheme();
@@ -32,6 +41,7 @@ export default function TemplateDetailScreen() {
   } = useTemplate(id);
   const { groups, refresh: refreshGroups } = useExerciseGroups();
   const groupsById = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups]);
+  const { locations } = useLocations();
 
   const [renaming, setRenaming] = useState(false);
   const [addingExercise, setAddingExercise] = useState(false);
@@ -40,6 +50,47 @@ export default function TemplateDetailScreen() {
   const [pickingStartLocation, setPickingStartLocation] = useState(false);
   const [linkingGroupFor, setLinkingGroupFor] = useState<TemplateExercise | null>(null);
   const [changingMemberFor, setChangingMemberFor] = useState<TemplateExercise | null>(null);
+
+  // Preview-only location selector, independent of the "Start Workout At"
+  // prompt below — defaults to this template's most recently used location
+  // so the common case shows real data without an extra tap.
+  const [previewLocationId, setPreviewLocationId] = useState<string | null>(null);
+  const [previewLocationTouched, setPreviewLocationTouched] = useState(false);
+  const [pickingPreviewLocation, setPickingPreviewLocation] = useState(false);
+  const [previewSets, setPreviewSets] = useState<Map<string, { weight: number; reps: number }[]>>(
+    new Map(),
+  );
+
+  useEffect(() => {
+    if (previewLocationTouched) return;
+    getMostRecentLocationForTemplate(id).then((locationId) => {
+      if (locationId !== null) {
+        setPreviewLocationId(locationId);
+      }
+    });
+  }, [id, previewLocationTouched]);
+
+  useEffect(() => {
+    if (!template || previewLocationId === null) {
+      setPreviewSets(new Map());
+      return;
+    }
+    let cancelled = false;
+    Promise.all(
+      template.exercises.map((exercise) =>
+        getPreviewSets(exercise.exerciseId, previewLocationId).then(
+          (sets) => [exercise.id, sets] as const,
+        ),
+      ),
+    ).then((entries) => {
+      if (!cancelled) {
+        setPreviewSets(new Map(entries));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [template, previewLocationId]);
 
   if (loading && !template) {
     return (
@@ -91,11 +142,11 @@ export default function TemplateDetailScreen() {
     await updateExercise(editingExercise.id, values);
   };
 
-  const handleSelectGroup = async (groupId: string) => {
+  const handleSelectGroup = async (group: ExerciseGroup) => {
     const exercise = linkingGroupFor;
     setLinkingGroupFor(null);
     if (!exercise) return;
-    await setExerciseGroup(exercise.exerciseId, groupId);
+    await setExerciseGroup(exercise.exerciseId, group.id);
     await refreshGroups();
     await refreshTemplate();
   };
@@ -128,6 +179,12 @@ export default function TemplateDetailScreen() {
     );
   };
 
+  const handleSelectPreviewLocation = (locationId: string) => {
+    setPickingPreviewLocation(false);
+    setPreviewLocationTouched(true);
+    setPreviewLocationId(locationId);
+  };
+
   const handleStartWorkout = () => {
     setPickingStartLocation(true);
   };
@@ -154,7 +211,8 @@ export default function TemplateDetailScreen() {
     editingExercise !== null ||
     pickingStartLocation ||
     linkingGroupFor !== null ||
-    changingMemberFor !== null;
+    changingMemberFor !== null ||
+    pickingPreviewLocation;
 
   return (
     <View style={styles.screen}>
@@ -188,6 +246,16 @@ export default function TemplateDetailScreen() {
         Sets, reps, and weight aren't stored on the template — they're loaded from your most
         recent history for each exercise at whichever location you pick when starting.
       </Text>
+
+      <Pressable style={styles.locationRow} onPress={() => setPickingPreviewLocation(true)}>
+        <Text style={styles.locationText}>
+          📍{" "}
+          {previewLocationId
+            ? locations.find((location) => location.id === previewLocationId)?.name ??
+              "Unknown location"
+            : "Pick a location to preview weights"}
+        </Text>
+      </Pressable>
 
       {template.exercises.length === 0 ? (
         <Text style={styles.emptyText}>No exercises yet — add one below.</Text>
@@ -227,6 +295,34 @@ export default function TemplateDetailScreen() {
                 <Text style={styles.groupAction}>+ Link substitution group</Text>
               </Pressable>
             )}
+
+            {previewLocationId ? (
+              (() => {
+                const sets = previewSets.get(exercise.id);
+                if (sets === undefined) {
+                  return null;
+                }
+                if (sets.length === 0) {
+                  return <Text style={styles.previewEmptyText}>No history yet</Text>;
+                }
+                return (
+                  <View>
+                    <SetRowHeader />
+                    {sets.map((set, index) => (
+                      <SetRow
+                        key={index}
+                        index={index}
+                        reps={set.reps}
+                        weight={set.weight}
+                        readOnly
+                        onUpdate={() => {}}
+                        onRemove={() => {}}
+                      />
+                    ))}
+                  </View>
+                );
+              })()
+            ) : null}
           </View>
         ))
       )}
@@ -274,15 +370,10 @@ export default function TemplateDetailScreen() {
         onSubmit={handleEditExercise}
       />
 
-      <PickerModal
+      <GroupPickerModal
         visible={linkingGroupFor !== null}
         title="Link substitution group"
-        items={groups.map((group) => ({
-          id: group.id,
-          label: group.name,
-          sublabel: `${group.members.length} exercise${group.members.length === 1 ? "" : "s"}`,
-        }))}
-        emptyText="No groups yet — create one in Settings → Exercise Groups."
+        groups={groups}
         onSelect={handleSelectGroup}
         onCancel={() => setLinkingGroupFor(null)}
       />
@@ -308,6 +399,14 @@ export default function TemplateDetailScreen() {
         title="Start Workout At"
         onSelect={handleStartLocationSelected}
         onCancel={() => setPickingStartLocation(false)}
+      />
+
+      <LocationPickerModal
+        visible={pickingPreviewLocation}
+        title="Preview At"
+        selectedId={previewLocationId}
+        onSelect={handleSelectPreviewLocation}
+        onCancel={() => setPickingPreviewLocation(false)}
       />
     </View>
   );
@@ -341,6 +440,12 @@ function createStyles(colors: ThemeColors, bottomInset: number) {
     startButtonDisabled: { opacity: 0.6 },
     startButtonText: { color: colors.primaryText, fontWeight: "700", fontSize: 16 },
     hintText: { fontSize: 12, color: colors.textMuted },
+    locationRow: {
+      alignSelf: "flex-start",
+      paddingVertical: 4,
+    },
+    locationText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
+    previewEmptyText: { fontSize: 12, color: colors.textMuted, fontStyle: "italic" },
     emptyText: { textAlign: "center", color: colors.textMuted, marginTop: 20 },
     exerciseCard: {
       backgroundColor: colors.surfaceMuted,
