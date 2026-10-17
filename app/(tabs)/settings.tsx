@@ -77,6 +77,13 @@ export default function SettingsScreen() {
         <Text style={[styles.navRowText, { color: colors.text }]}>Manage Exercise Groups</Text>
         <Text style={{ color: colors.textMuted }}>›</Text>
       </Pressable>
+      <Pressable
+        style={[styles.navRow, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
+        onPress={() => router.push("/exercises")}
+      >
+        <Text style={[styles.navRowText, { color: colors.text }]}>Manage Exercises</Text>
+        <Text style={{ color: colors.textMuted }}>›</Text>
+      </Pressable>
     </View>
   );
 }
