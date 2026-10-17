@@ -64,6 +64,8 @@ export function SetRow({
   const [error, setError] = useState<string | null>(null);
   const [isEditingReps, setIsEditingReps] = useState(false);
   const [isEditingWeight, setIsEditingWeight] = useState(false);
+  const [repsSelection, setRepsSelection] = useState<{ start: number; end: number } | undefined>(undefined);
+  const [weightSelection, setWeightSelection] = useState<{ start: number; end: number } | undefined>(undefined);
 
   useEffect(() => {
     if (isEditingReps) return;
@@ -122,11 +124,16 @@ export function SetRow({
         <TextInput
           style={styles.setInput}
           value={reps}
+          selection={repsSelection}
           onChangeText={(text) => {
             setReps(text);
+            setRepsSelection(undefined);
             setError(null);
           }}
-          onFocus={() => setIsEditingReps(true)}
+          onFocus={() => {
+            setIsEditingReps(true);
+            setRepsSelection({ start: 0, end: reps.length });
+          }}
           onEndEditing={commitReps}
           keyboardType="numeric"
           placeholderTextColor={colors.textMuted}
@@ -134,11 +141,16 @@ export function SetRow({
         <TextInput
           style={styles.setInput}
           value={weight}
+          selection={weightSelection}
           onChangeText={(text) => {
             setWeight(text);
+            setWeightSelection(undefined);
             setError(null);
           }}
-          onFocus={() => setIsEditingWeight(true)}
+          onFocus={() => {
+            setIsEditingWeight(true);
+            setWeightSelection({ start: 0, end: weight.length });
+          }}
           onEndEditing={commitWeight}
           keyboardType="numeric"
           placeholderTextColor={colors.textMuted}
