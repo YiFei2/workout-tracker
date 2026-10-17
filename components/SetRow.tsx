@@ -122,6 +122,7 @@ export function SetRow({
       <View style={styles.setRow}>
         <Text style={styles.setLabel}>Set {index + 1}</Text>
         <TextInput
+          testID="set-row-reps-input"
           style={styles.setInput}
           value={reps}
           selection={repsSelection}
@@ -139,6 +140,7 @@ export function SetRow({
           placeholderTextColor={colors.textMuted}
         />
         <TextInput
+          testID="set-row-weight-input"
           style={styles.setInput}
           value={weight}
           selection={weightSelection}
