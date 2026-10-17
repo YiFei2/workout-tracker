@@ -4,17 +4,19 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ExerciseFormModal, type ExerciseFormValues } from "../../components/ExerciseFormModal";
+import { ExercisePickerModal } from "../../components/ExercisePickerModal";
+import { GroupPickerModal } from "../../components/GroupPickerModal";
 import { LocationPickerModal } from "../../components/LocationPickerModal";
-import { PickerModal } from "../../components/PickerModal";
 import { RestTimerOverlay } from "../../components/RestTimerOverlay";
 import { SetRow, SetRowHeader } from "../../components/SetRow";
 import { useTheme } from "../../contexts/ThemeContext";
+import { setExerciseGroup } from "../../db";
 import { useExerciseGroups } from "../../hooks/useExerciseGroups";
 import { useLocations } from "../../hooks/useLocations";
 import { useRestTimer } from "../../hooks/useRestTimer";
 import { useSession } from "../../hooks/useSession";
 import type { ThemeColors } from "../../lib/theme";
-import type { LoggedExercise, WorkoutSet } from "../../types";
+import type { Exercise, ExerciseGroup, LoggedExercise, WorkoutSet } from "../../types";
 
 export default function SessionScreen() {
   const { colors } = useTheme();
@@ -26,6 +28,7 @@ export default function SessionScreen() {
   const {
     session,
     loading,
+    refresh: refreshSession,
     addExercise,
     removeExercise,
     addSet,
@@ -38,12 +41,13 @@ export default function SessionScreen() {
   } = useSession(id);
   const { timer, start, adjust, dismiss, adjustStep } = useRestTimer();
   const { locations } = useLocations();
-  const { groups } = useExerciseGroups();
+  const { groups, refresh: refreshGroups } = useExerciseGroups();
   const groupsById = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups]);
 
   const [addingExercise, setAddingExercise] = useState(false);
   const [pickingLocation, setPickingLocation] = useState(false);
   const [swappingExercise, setSwappingExercise] = useState<LoggedExercise | null>(null);
+  const [linkingGroupFor, setLinkingGroupFor] = useState<LoggedExercise | null>(null);
 
   if (loading && !session) {
     return (
@@ -69,13 +73,24 @@ export default function SessionScreen() {
     await setLocation(locationId);
   };
 
-  const handleSelectSwap = async (exerciseId: string) => {
-    const exercise = swappingExercise;
+  const handleSelectSwap = async (exercise: Exercise) => {
+    const logged = swappingExercise;
     setSwappingExercise(null);
-    if (!exercise || !exercise.exerciseGroupId || exerciseId === exercise.exerciseId) return;
-    const member = groupsById.get(exercise.exerciseGroupId)?.members.find((m) => m.id === exerciseId);
-    if (!member) return;
-    await swapExercise(exercise.id, member.id, member.name);
+    if (!logged || !logged.exerciseGroupId || exercise.id === logged.exerciseId) return;
+    if (exercise.groupId !== logged.exerciseGroupId) {
+      await setExerciseGroup(exercise.id, logged.exerciseGroupId);
+      await refreshGroups();
+    }
+    await swapExercise(logged.id, exercise.id, exercise.name);
+  };
+
+  const handleSelectGroupLink = async (group: ExerciseGroup) => {
+    const exercise = linkingGroupFor;
+    setLinkingGroupFor(null);
+    if (!exercise) return;
+    await setExerciseGroup(exercise.exerciseId, group.id);
+    await refreshGroups();
+    await refreshSession();
   };
 
   const handleToggleCompleted = async (exercise: LoggedExercise, set: WorkoutSet) => {
@@ -105,7 +120,7 @@ export default function SessionScreen() {
         text: "Complete",
         onPress: async () => {
           await complete();
-          router.back();
+          router.dismissTo("/history");
         },
       },
     ]);
@@ -127,7 +142,8 @@ export default function SessionScreen() {
 
   // While any modal is open, make the screen behind it inert to touch and
   // accessibility tooling — see the matching comment in app/template/[id].tsx.
-  const anyModalOpen = addingExercise || pickingLocation || swappingExercise !== null;
+  const anyModalOpen =
+    addingExercise || pickingLocation || swappingExercise !== null || linkingGroupFor !== null;
 
   return (
     <View style={styles.screen}>
@@ -171,6 +187,15 @@ export default function SessionScreen() {
                   hitSlop={8}
                 >
                   <Text style={styles.swapButtonText}>⇄ Swap</Text>
+                </Pressable>
+              )}
+              {!readOnly && !exercise.exerciseGroupId && (
+                <Pressable
+                  style={styles.swapButton}
+                  onPress={() => setLinkingGroupFor(exercise)}
+                  hitSlop={8}
+                >
+                  <Text style={styles.swapButtonText}>+ Link substitution group</Text>
                 </Pressable>
               )}
               {!readOnly && (
@@ -247,20 +272,25 @@ export default function SessionScreen() {
         onCancel={() => setPickingLocation(false)}
       />
 
-      <PickerModal
+      <ExercisePickerModal
         visible={swappingExercise !== null}
         title="Swap Exercise"
-        items={
+        exercises={
           swappingExercise?.exerciseGroupId
-            ? (groupsById.get(swappingExercise.exerciseGroupId)?.members ?? []).map((member) => ({
-                id: member.id,
-                label: member.name,
-              }))
+            ? groupsById.get(swappingExercise.exerciseGroupId)?.members ?? []
             : []
         }
         selectedId={swappingExercise?.exerciseId ?? null}
         onSelect={handleSelectSwap}
         onCancel={() => setSwappingExercise(null)}
+      />
+
+      <GroupPickerModal
+        visible={linkingGroupFor !== null}
+        title="Link substitution group"
+        groups={groups}
+        onSelect={handleSelectGroupLink}
+        onCancel={() => setLinkingGroupFor(null)}
       />
     </View>
   );

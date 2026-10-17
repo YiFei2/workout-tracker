@@ -11,6 +11,14 @@ interface Props {
   visible: boolean;
   title?: string;
   selectedId?: string | null;
+  /**
+   * Restrict the browsable/searchable list to this subset (e.g. a
+   * substitution group's current members) instead of the whole library.
+   * The "+ Add new" row still creates in the global library regardless —
+   * callers that need the new exercise linked into a group do that
+   * themselves in `onSelect`.
+   */
+  exercises?: Exercise[];
   onSelect: (exercise: Exercise) => void;
   onCancel: () => void;
 }
@@ -23,12 +31,14 @@ export function ExercisePickerModal({
   visible,
   title = "Choose Exercise",
   selectedId = null,
+  exercises: exercisesOverride,
   onSelect,
   onCancel,
 }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { exercises, create, refresh } = useExercises();
+  const { exercises: libraryExercises, create, refresh } = useExercises();
+  const exercises = exercisesOverride ?? libraryExercises;
 
   // useExercises() only refetches on screen focus, but this picker can be
   // one of several independent instances mounted on the same screen at once
