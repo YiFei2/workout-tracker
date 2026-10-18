@@ -20,6 +20,7 @@ import {
 import { useExerciseGroups } from "../../hooks/useExerciseGroups";
 import { useLocations } from "../../hooks/useLocations";
 import { useTemplate } from "../../hooks/useTemplate";
+import { formatMinutesSeconds } from "../../lib/time";
 import type { ThemeColors } from "../../lib/theme";
 import type { ExerciseGroup, TemplateExercise } from "../../types";
 
@@ -37,6 +38,7 @@ export default function TemplateDetailScreen() {
     addExercise,
     updateExercise,
     removeExercise,
+    reorderExercises,
     refresh: refreshTemplate,
   } = useTemplate(id);
   const { groups, refresh: refreshGroups } = useExerciseGroups();
@@ -127,6 +129,16 @@ export default function TemplateDetailScreen() {
       { text: "Cancel", style: "cancel" },
       { text: "Remove", style: "destructive", onPress: () => removeExercise(exercise.id) },
     ]);
+  };
+
+  const handleMoveExercise = (exercise: TemplateExercise, direction: -1 | 1) => {
+    if (!template) return;
+    const ids = template.exercises.map((e) => e.id);
+    const index = ids.indexOf(exercise.id);
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= ids.length) return;
+    [ids[index], ids[targetIndex]] = [ids[targetIndex], ids[index]];
+    reorderExercises(ids);
   };
 
   const handleAddExercise = async (values: ExerciseFormValues) => {
@@ -260,13 +272,44 @@ export default function TemplateDetailScreen() {
       {template.exercises.length === 0 ? (
         <Text style={styles.emptyText}>No exercises yet — add one below.</Text>
       ) : (
-        template.exercises.map((exercise) => (
+        template.exercises.map((exercise, exerciseIndex) => (
           <View key={exercise.id} style={styles.exerciseCard}>
             <View style={styles.exerciseHeader}>
+              <View style={styles.reorderColumn}>
+                <Pressable
+                  style={styles.reorderButton}
+                  onPress={() => handleMoveExercise(exercise, -1)}
+                  disabled={exerciseIndex === 0}
+                  hitSlop={8}
+                >
+                  <Text
+                    style={[styles.reorderButtonText, exerciseIndex === 0 && styles.reorderButtonTextDisabled]}
+                  >
+                    ▲
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={styles.reorderButton}
+                  onPress={() => handleMoveExercise(exercise, 1)}
+                  disabled={exerciseIndex === template.exercises.length - 1}
+                  hitSlop={8}
+                >
+                  <Text
+                    style={[
+                      styles.reorderButtonText,
+                      exerciseIndex === template.exercises.length - 1 && styles.reorderButtonTextDisabled,
+                    ]}
+                  >
+                    ▼
+                  </Text>
+                </Pressable>
+              </View>
               <Pressable style={styles.exerciseTitleArea} onPress={() => setEditingExercise(exercise)}>
                 <Text style={styles.exerciseName}>{exercise.exerciseName}</Text>
                 <Text style={styles.exerciseRest}>
-                  {exercise.restSeconds !== null ? `Rest: ${exercise.restSeconds}s` : "No rest set"}
+                  {exercise.restSeconds !== null
+                    ? `Rest: ${formatMinutesSeconds(exercise.restSeconds)}`
+                    : "No rest set"}
                 </Text>
               </Pressable>
               <Pressable
@@ -461,6 +504,15 @@ function createStyles(colors: ThemeColors, bottomInset: number) {
     exerciseTitleArea: { flex: 1 },
     exerciseName: { fontSize: 16, fontWeight: "600", color: colors.text },
     exerciseRest: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+    reorderColumn: {
+      marginRight: 8,
+    },
+    reorderButton: {
+      paddingVertical: 2,
+      paddingHorizontal: 4,
+    },
+    reorderButtonText: { fontSize: 14, color: colors.textMuted },
+    reorderButtonTextDisabled: { opacity: 0.3 },
     removeButton: {
       paddingHorizontal: 8,
       paddingVertical: 4,

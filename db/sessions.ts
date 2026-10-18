@@ -496,6 +496,23 @@ export async function removeLoggedExercise(id: string): Promise<void> {
   await db.runAsync("DELETE FROM logged_exercises WHERE id = ?", id);
 }
 
+export async function reorderLoggedExercises(
+  sessionId: string,
+  orderedExerciseIds: string[],
+): Promise<void> {
+  const db = await getDb();
+  await db.withTransactionAsync(async () => {
+    for (let i = 0; i < orderedExerciseIds.length; i++) {
+      await db.runAsync(
+        "UPDATE logged_exercises SET order_index = ? WHERE id = ? AND session_id = ?",
+        i,
+        orderedExerciseIds[i],
+        sessionId,
+      );
+    }
+  });
+}
+
 // Swaps a logged exercise for a different member of its substitution group
 // (e.g. Barbell Bench -> Dumbbell Bench). Existing sets are discarded in
 // favor of the swapped-in exercise's own historical weight/reps (same

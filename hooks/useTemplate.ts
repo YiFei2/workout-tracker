@@ -5,6 +5,7 @@ import {
   getTemplate,
   removeTemplateExercise,
   renameTemplate,
+  reorderTemplateExercises,
   updateTemplateExercise,
   type NewTemplateExerciseInput,
   type TemplateExercisePatch,
@@ -61,6 +62,14 @@ export function useTemplate(id: string) {
     [refresh],
   );
 
+  const reorderExercises = useCallback(
+    async (orderedExerciseIds: string[]) => {
+      await reorderTemplateExercises(id, orderedExerciseIds);
+      await refresh();
+    },
+    [id, refresh],
+  );
+
   return {
     template,
     loading,
@@ -69,5 +78,6 @@ export function useTemplate(id: string) {
     addExercise,
     updateExercise,
     removeExercise,
+    reorderExercises,
   };
 }

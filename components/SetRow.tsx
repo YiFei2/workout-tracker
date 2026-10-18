@@ -37,8 +37,8 @@ export function SetRowHeader({ showCompletedColumn = false }: HeaderProps) {
   return (
     <View style={styles.headerRow}>
       <Text style={[styles.setLabel, styles.headerLabel]}>Set</Text>
-      <Text style={[styles.headerColumn, styles.headerLabel]}>Reps</Text>
       <Text style={[styles.headerColumn, styles.headerLabel]}>Weight ({unit})</Text>
+      <Text style={[styles.headerColumn, styles.headerLabel]}>Reps</Text>
       {showCompletedColumn ? <View style={styles.headerDoneSpacer} /> : null}
       <View style={styles.headerRemoveSpacer} />
     </View>
@@ -105,8 +105,8 @@ export function SetRow({
     return (
       <View style={styles.setRow}>
         <Text style={styles.setLabel}>Set {index + 1}</Text>
-        <Text style={styles.readOnlyColumn}>{repsValue}</Text>
         <Text style={styles.readOnlyColumn}>{kgToUnit(weightKg, unit)}</Text>
+        <Text style={styles.readOnlyColumn}>{repsValue}</Text>
         {completed !== undefined ? (
           <View style={styles.headerDoneSpacer}>
             <Text style={styles.setReadOnlyText}>{completed ? "✓" : "—"}</Text>
@@ -122,24 +122,6 @@ export function SetRow({
       <View style={styles.setRow}>
         <Text style={styles.setLabel}>Set {index + 1}</Text>
         <TextInput
-          testID="set-row-reps-input"
-          style={styles.setInput}
-          value={reps}
-          selection={repsSelection}
-          onChangeText={(text) => {
-            setReps(text);
-            setRepsSelection(undefined);
-            setError(null);
-          }}
-          onFocus={() => {
-            setIsEditingReps(true);
-            setRepsSelection({ start: 0, end: reps.length });
-          }}
-          onEndEditing={commitReps}
-          keyboardType="numeric"
-          placeholderTextColor={colors.textMuted}
-        />
-        <TextInput
           testID="set-row-weight-input"
           style={styles.setInput}
           value={weight}
@@ -154,6 +136,24 @@ export function SetRow({
             setWeightSelection({ start: 0, end: weight.length });
           }}
           onEndEditing={commitWeight}
+          keyboardType="numeric"
+          placeholderTextColor={colors.textMuted}
+        />
+        <TextInput
+          testID="set-row-reps-input"
+          style={styles.setInput}
+          value={reps}
+          selection={repsSelection}
+          onChangeText={(text) => {
+            setReps(text);
+            setRepsSelection(undefined);
+            setError(null);
+          }}
+          onFocus={() => {
+            setIsEditingReps(true);
+            setRepsSelection({ start: 0, end: reps.length });
+          }}
+          onEndEditing={commitReps}
           keyboardType="numeric"
           placeholderTextColor={colors.textMuted}
         />

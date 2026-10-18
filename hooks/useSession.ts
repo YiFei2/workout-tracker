@@ -8,6 +8,7 @@ import {
   getSession,
   removeLoggedExercise,
   removeSet,
+  reorderLoggedExercises,
   setSessionLocation,
   swapLoggedExercise,
   updateLoggedExercise,
@@ -84,6 +85,14 @@ export function useSession(id: string) {
     [refresh],
   );
 
+  const reorderExercises = useCallback(
+    async (orderedExerciseIds: string[]) => {
+      await reorderLoggedExercises(id, orderedExerciseIds);
+      await refresh();
+    },
+    [id, refresh],
+  );
+
   const swapExercise = useCallback(
     async (loggedExerciseId: string, exerciseId: string, exerciseName: string) => {
       await swapLoggedExercise(loggedExerciseId, exerciseId, exerciseName);
@@ -119,6 +128,7 @@ export function useSession(id: string) {
     addSet: addExerciseSet,
     updateSet: updateExerciseSet,
     removeSet: removeExerciseSet,
+    reorderExercises,
     swapExercise,
     setLocation,
     complete,

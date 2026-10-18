@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import { OverlayModal } from "./OverlayModal";
 import type { RestTimerState } from "../hooks/useRestTimer";
+import { formatMinutesSeconds } from "../lib/time";
 import type { ThemeColors } from "../lib/theme";
 
 interface Props {
@@ -11,12 +12,6 @@ interface Props {
   adjustStep: number;
   onAdjust: (deltaSeconds: number) => void;
   onDismiss: () => void;
-}
-
-function formatSeconds(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 export function RestTimerOverlay({ timer, adjustStep, onAdjust, onDismiss }: Props) {
@@ -32,7 +27,7 @@ export function RestTimerOverlay({ timer, adjustStep, onAdjust, onDismiss }: Pro
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <Text style={styles.label}>Resting — {timer.exerciseName}</Text>
-          <Text style={styles.clock}>{formatSeconds(timer.secondsLeft)}</Text>
+          <Text style={styles.clock}>{formatMinutesSeconds(timer.secondsLeft)}</Text>
 
           <View style={styles.adjustRow}>
             <Pressable style={styles.adjustButton} onPress={() => onAdjust(-adjustStep)}>

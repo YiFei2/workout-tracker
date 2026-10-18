@@ -41,7 +41,8 @@ export function ExerciseFormModal({
 
   const [exerciseId, setExerciseId] = useState("");
   const [exerciseName, setExerciseName] = useState("");
-  const [restSeconds, setRestSeconds] = useState("");
+  const [restMinutes, setRestMinutes] = useState("");
+  const [restSecondsPart, setRestSecondsPart] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
 
@@ -50,7 +51,13 @@ export function ExerciseFormModal({
       const values = initialValues ?? EMPTY_VALUES;
       setExerciseId(values.exerciseId);
       setExerciseName(values.exerciseName);
-      setRestSeconds(values.restSeconds === null ? "" : String(values.restSeconds));
+      if (values.restSeconds === null) {
+        setRestMinutes("");
+        setRestSecondsPart("");
+      } else {
+        setRestMinutes(String(Math.floor(values.restSeconds / 60)));
+        setRestSecondsPart(String(values.restSeconds % 60));
+      }
       setError(null);
     }
   }, [visible, initialValues]);
@@ -68,13 +75,14 @@ export function ExerciseFormModal({
     }
 
     let restSecondsNum: number | null = null;
-    if (restSeconds.trim() !== "") {
-      const parsed = Number(restSeconds);
-      if (!Number.isFinite(parsed) || parsed < 0) {
-        setError("Rest time must be zero or a positive number of seconds");
+    if (restMinutes.trim() !== "" || restSecondsPart.trim() !== "") {
+      const minutes = restMinutes.trim() === "" ? 0 : Number(restMinutes);
+      const seconds = restSecondsPart.trim() === "" ? 0 : Number(restSecondsPart);
+      if (!Number.isInteger(minutes) || minutes < 0 || !Number.isInteger(seconds) || seconds < 0 || seconds > 59) {
+        setError("Rest time must be a non-negative whole number of minutes, and 0-59 seconds");
         return;
       }
-      restSecondsNum = parsed;
+      restSecondsNum = minutes * 60 + seconds;
     }
 
     onSubmit({ exerciseId, exerciseName, restSeconds: restSecondsNum });
@@ -96,15 +104,27 @@ export function ExerciseFormModal({
             </Text>
           </Pressable>
 
-          <Text style={styles.label}>Rest between sets (seconds, optional)</Text>
-          <TextInput
-            style={styles.input}
-            value={restSeconds}
-            onChangeText={setRestSeconds}
-            keyboardType="numeric"
-            placeholder="e.g. 90"
-            placeholderTextColor={colors.textMuted}
-          />
+          <Text style={styles.label}>Rest between sets (optional)</Text>
+          <View style={styles.restRow}>
+            <TextInput
+              style={styles.restInput}
+              value={restMinutes}
+              onChangeText={setRestMinutes}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={colors.textMuted}
+            />
+            <Text style={styles.restUnitLabel}>min</Text>
+            <TextInput
+              style={styles.restInput}
+              value={restSecondsPart}
+              onChangeText={setRestSecondsPart}
+              keyboardType="numeric"
+              placeholder="30"
+              placeholderTextColor={colors.textMuted}
+            />
+            <Text style={styles.restUnitLabel}>sec</Text>
+          </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -158,6 +178,26 @@ function createStyles(colors: ThemeColors) {
       paddingVertical: 10,
       fontSize: 16,
       color: colors.text,
+    },
+    restRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    restInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 16,
+      color: colors.text,
+      width: 64,
+      textAlign: "center",
+    },
+    restUnitLabel: {
+      fontSize: 13,
+      color: colors.textMuted,
     },
     pickerButton: {
       borderWidth: 1,

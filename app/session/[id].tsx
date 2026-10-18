@@ -1,6 +1,15 @@
 import { useMemo, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ExerciseFormModal, type ExerciseFormValues } from "../../components/ExerciseFormModal";
@@ -15,6 +24,7 @@ import { useExerciseGroups } from "../../hooks/useExerciseGroups";
 import { useLocations } from "../../hooks/useLocations";
 import { useRestTimer } from "../../hooks/useRestTimer";
 import { useSession } from "../../hooks/useSession";
+import { formatMinutesSeconds } from "../../lib/time";
 import type { ThemeColors } from "../../lib/theme";
 import type { Exercise, ExerciseGroup, LoggedExercise, WorkoutSet } from "../../types";
 
@@ -35,6 +45,7 @@ export default function SessionScreen() {
     updateSet,
     removeSet,
     swapExercise,
+    reorderExercises,
     setLocation,
     complete,
     discard,
@@ -101,6 +112,16 @@ export default function SessionScreen() {
     }
   };
 
+  const handleMoveExercise = (exercise: LoggedExercise, direction: -1 | 1) => {
+    if (!session) return;
+    const ids = session.exercises.map((e) => e.id);
+    const index = ids.indexOf(exercise.id);
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= ids.length) return;
+    [ids[index], ids[targetIndex]] = [ids[targetIndex], ids[index]];
+    reorderExercises(ids);
+  };
+
   const handleRemoveExercise = (exercise: LoggedExercise) => {
     Alert.alert("Remove exercise", `Remove "${exercise.exerciseName}" from this session?`, [
       { text: "Cancel", style: "cancel" },
@@ -147,13 +168,19 @@ export default function SessionScreen() {
 
   return (
     <View style={styles.screen}>
-      <View
+      <KeyboardAvoidingView
         style={styles.container}
         pointerEvents={anyModalOpen ? "none" : "auto"}
         importantForAccessibility={anyModalOpen ? "no-hide-descendants" : "auto"}
         accessibilityElementsHidden={anyModalOpen}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.bottom : 0}
       >
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         <Stack.Screen options={{ title: session.name }} />
 
       {!readOnly || currentLocation ? (
@@ -171,13 +198,46 @@ export default function SessionScreen() {
       {session.exercises.length === 0 ? (
         <Text style={styles.emptyText}>No exercises yet — add one below.</Text>
       ) : (
-        session.exercises.map((exercise) => (
+        session.exercises.map((exercise, exerciseIndex) => (
           <View key={exercise.id} style={styles.exerciseCard}>
             <View style={styles.exerciseHeader}>
+              {!readOnly && (
+                <View style={styles.reorderColumn}>
+                  <Pressable
+                    style={styles.reorderButton}
+                    onPress={() => handleMoveExercise(exercise, -1)}
+                    disabled={exerciseIndex === 0}
+                    hitSlop={8}
+                  >
+                    <Text
+                      style={[styles.reorderButtonText, exerciseIndex === 0 && styles.reorderButtonTextDisabled]}
+                    >
+                      ▲
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.reorderButton}
+                    onPress={() => handleMoveExercise(exercise, 1)}
+                    disabled={exerciseIndex === session.exercises.length - 1}
+                    hitSlop={8}
+                  >
+                    <Text
+                      style={[
+                        styles.reorderButtonText,
+                        exerciseIndex === session.exercises.length - 1 && styles.reorderButtonTextDisabled,
+                      ]}
+                    >
+                      ▼
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
               <View style={styles.exerciseTitleArea}>
                 <Text style={styles.exerciseName}>{exercise.exerciseName}</Text>
                 <Text style={styles.exerciseRest}>
-                  {exercise.restSeconds !== null ? `Rest: ${exercise.restSeconds}s` : "No rest set"}
+                  {exercise.restSeconds !== null
+                    ? `Rest: ${formatMinutesSeconds(exercise.restSeconds)}`
+                    : "No rest set"}
                 </Text>
               </View>
               {!readOnly && exercise.exerciseGroupId && (
@@ -252,7 +312,7 @@ export default function SessionScreen() {
       )}
 
       </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
 
       <ExerciseFormModal
         visible={addingExercise}
@@ -300,7 +360,11 @@ function createStyles(colors: ThemeColors, bottomInset: number) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.background },
     container: { flex: 1, backgroundColor: colors.background },
-    scrollContent: { padding: 16, gap: 12, paddingBottom: 40 + bottomInset },
+    // Generous bottom padding (not just safe-area + a little) so the
+    // ScrollView always has enough trailing scroll room to bring a
+    // focused input in the last exercise card fully above the keyboard —
+    // see the comment on the KeyboardAvoidingView in the component body.
+    scrollContent: { padding: 16, gap: 12, paddingBottom: 320 + bottomInset },
     emptyText: { textAlign: "center", color: colors.textMuted, marginTop: 20 },
     locationRow: {
       alignSelf: "flex-start",
@@ -321,6 +385,15 @@ function createStyles(colors: ThemeColors, bottomInset: number) {
     exerciseTitleArea: { flex: 1 },
     exerciseName: { fontSize: 16, fontWeight: "600", color: colors.text },
     exerciseRest: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+    reorderColumn: {
+      marginRight: 8,
+    },
+    reorderButton: {
+      paddingVertical: 2,
+      paddingHorizontal: 4,
+    },
+    reorderButtonText: { fontSize: 14, color: colors.textMuted },
+    reorderButtonTextDisabled: { opacity: 0.3 },
     removeButton: {
       paddingHorizontal: 6,
       paddingVertical: 4,
