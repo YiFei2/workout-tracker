@@ -1,6 +1,7 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
+import { setAudioModeAsync } from 'expo-audio';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -45,6 +46,9 @@ export default function RootLayout() {
   useEffect(() => {
     getDb().catch((error) => {
       console.error('Failed to initialize database', error);
+    });
+    setAudioModeAsync({ playsInSilentMode: true }).catch((error) => {
+      console.error('Failed to set audio mode', error);
     });
   }, []);
 

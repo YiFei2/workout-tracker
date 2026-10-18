@@ -31,7 +31,17 @@
         {
           "enforceContrast": false
         }
-      ]
+      ],
+      "expo-audio",
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/sounds/ding.wav"
+          ]
+        }
+      ],
+      "expo-asset"
     ],
     "extra": {
       "router": {},
