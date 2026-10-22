@@ -19,6 +19,20 @@ import {
 } from "../db";
 import type { WorkoutSession } from "../types";
 
+function patchSessionSet(
+  session: WorkoutSession,
+  setId: string,
+  patch: SetPatch,
+): WorkoutSession {
+  return {
+    ...session,
+    exercises: session.exercises.map((exercise) => ({
+      ...exercise,
+      sets: exercise.sets.map((set) => (set.id === setId ? { ...set, ...patch } : set)),
+    })),
+  };
+}
+
 export function useSession(id: string) {
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,10 +85,15 @@ export function useSession(id: string) {
 
   const updateExerciseSet = useCallback(
     async (setId: string, patch: SetPatch) => {
+      // Update the in-memory session optimistically rather than refetching:
+      // set edits now persist on every keystroke (see SetRow), and a full
+      // refresh per keystroke would be wasteful and could feed a stale value
+      // back into the row on blur. Nothing derived from set values/completion
+      // on this screen needs a reload — the row already shows the new value.
+      setSession((prev) => (prev ? patchSessionSet(prev, setId, patch) : prev));
       await updateSet(setId, patch);
-      await refresh();
     },
-    [refresh],
+    [],
   );
 
   const removeExerciseSet = useCallback(

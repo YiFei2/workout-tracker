@@ -77,16 +77,46 @@ export function SetRow({
     setWeight(String(kgToUnit(weightKg, unit)));
   }, [weightKg, unit, isEditingWeight]);
 
+  // Persist on every keystroke that produces a valid value, rather than only
+  // on blur. Android's onEndEditing/blur doesn't reliably fire when focus is
+  // stolen by tapping the Done check or "+ Add Set", or when the keyboard is
+  // dismissed with the back button — which previously left the typed value in
+  // local state only, so it was never saved and later actions read a stale DB
+  // value. See backlog.md "Last-edited set value not persisted".
+  const handleRepsChange = (text: string) => {
+    setReps(text);
+    setRepsSelection(undefined);
+    setError(null);
+    const parsed = Number(text);
+    if (text.trim() !== "" && Number.isFinite(parsed) && parsed > 0) {
+      onUpdate({ reps: parsed });
+    }
+  };
+
+  const handleWeightChange = (text: string) => {
+    setWeight(text);
+    setWeightSelection(undefined);
+    setError(null);
+    const parsed = Number(text);
+    if (text.trim() !== "" && Number.isFinite(parsed) && parsed >= 0) {
+      onUpdate({ weight: unitToKg(parsed, unit) });
+    }
+  };
+
+  // Blur only validates and reverts an invalid/empty field — valid values are
+  // already persisted on change above. We only surface the error when the user
+  // actually changed the field to something invalid; a field still showing its
+  // stored value (e.g. an untouched blank set with 0 reps) is left alone.
   const commitReps = () => {
     setIsEditingReps(false);
     const parsed = Number(reps);
     if (Number.isFinite(parsed) && parsed > 0) {
       setError(null);
-      onUpdate({ reps: parsed });
-    } else {
-      setError("Reps must be a positive number");
-      setReps(String(repsValue));
+      return;
     }
+    const stored = String(repsValue);
+    setError(reps === stored ? null : "Reps must be a positive number");
+    setReps(stored);
   };
 
   const commitWeight = () => {
@@ -94,11 +124,11 @@ export function SetRow({
     const parsed = Number(weight);
     if (weight.trim() !== "" && Number.isFinite(parsed) && parsed >= 0) {
       setError(null);
-      onUpdate({ weight: unitToKg(parsed, unit) });
-    } else {
-      setError("Weight must be zero or a positive number");
-      setWeight(String(kgToUnit(weightKg, unit)));
+      return;
     }
+    const stored = String(kgToUnit(weightKg, unit));
+    setError(weight === stored ? null : "Weight must be zero or a positive number");
+    setWeight(stored);
   };
 
   if (readOnly) {
@@ -126,11 +156,7 @@ export function SetRow({
           style={styles.setInput}
           value={weight}
           selection={weightSelection}
-          onChangeText={(text) => {
-            setWeight(text);
-            setWeightSelection(undefined);
-            setError(null);
-          }}
+          onChangeText={handleWeightChange}
           onFocus={() => {
             setIsEditingWeight(true);
             setWeightSelection({ start: 0, end: weight.length });
@@ -144,11 +170,7 @@ export function SetRow({
           style={styles.setInput}
           value={reps}
           selection={repsSelection}
-          onChangeText={(text) => {
-            setReps(text);
-            setRepsSelection(undefined);
-            setError(null);
-          }}
+          onChangeText={handleRepsChange}
           onFocus={() => {
             setIsEditingReps(true);
             setRepsSelection({ start: 0, end: reps.length });
