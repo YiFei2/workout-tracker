@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from "expo-sqlite";
 
 import { getDb } from "./client";
 import { generateId } from "./ids";
-import { getTemplate } from "./templates";
+import { addTemplateExercise, getTemplate } from "./templates";
 import type { LoggedExercise, WorkoutSession, WorkoutSet } from "../types";
 
 export interface SessionSummary {
@@ -442,6 +442,36 @@ export async function deleteSession(id: string): Promise<void> {
   await db.runAsync("DELETE FROM sessions WHERE id = ?", id);
 }
 
+// Also mirrors the exercise onto the session's originating template (if
+// any) so the next workout started from that template includes it too —
+// otherwise an exercise added mid-workout would silently vanish once the
+// session ends, which defeats the point of templates. Skipped if the
+// template already has that exercise, so re-adding something you removed
+// earlier in the same workout doesn't duplicate the template slot.
+async function mirrorExerciseOntoTemplate(
+  db: SQLiteDatabase,
+  sessionId: string,
+  input: NewLoggedExerciseInput,
+): Promise<void> {
+  const sessionRow = await db.getFirstAsync<{ template_id: string | null }>(
+    "SELECT template_id FROM sessions WHERE id = ?",
+    sessionId,
+  );
+  const templateId = sessionRow?.template_id ?? null;
+  if (!templateId) {
+    return;
+  }
+  const existing = await db.getFirstAsync<{ id: string }>(
+    "SELECT id FROM template_exercises WHERE template_id = ? AND exercise_id = ?",
+    templateId,
+    input.exerciseId,
+  );
+  if (existing) {
+    return;
+  }
+  await addTemplateExercise(templateId, input);
+}
+
 export async function addLoggedExercise(
   sessionId: string,
   input: NewLoggedExerciseInput,
@@ -457,7 +487,7 @@ export async function addLoggedExercise(
   );
   const order = (maxOrderRow?.max_order ?? -1) + 1;
 
-  return insertLoggedExerciseWithSuggestedSets(
+  const loggedExercise = await insertLoggedExerciseWithSuggestedSets(
     db,
     sessionId,
     order,
@@ -466,6 +496,8 @@ export async function addLoggedExercise(
     input.restSeconds ?? null,
     sessionRow?.location_id ?? null,
   );
+  await mirrorExerciseOntoTemplate(db, sessionId, input);
+  return loggedExercise;
 }
 
 export async function updateLoggedExercise(id: string, patch: LoggedExercisePatch): Promise<void> {

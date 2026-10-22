@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useFocusEffect } from "expo-router";
 
 import {
   addTemplateExercise,
@@ -26,9 +27,15 @@ export function useTemplate(id: string) {
     }
   }, [id]);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  // Refetches on every return to this screen (not just on mount) so
+  // exercises mirrored in from an in-progress workout — see
+  // mirrorExerciseOntoTemplate in db/sessions.ts — show up as soon as the
+  // user navigates back, without needing to leave and re-enter the screen.
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
 
   const rename = useCallback(
     async (name: string) => {

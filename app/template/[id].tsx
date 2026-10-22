@@ -17,8 +17,8 @@ import {
   setExerciseGroup,
   startSessionFromTemplate,
 } from "../../db";
+import { useLocations } from "../../contexts/LocationsContext";
 import { useExerciseGroups } from "../../hooks/useExerciseGroups";
-import { useLocations } from "../../hooks/useLocations";
 import { useTemplate } from "../../hooks/useTemplate";
 import { formatMinutesSeconds } from "../../lib/time";
 import type { ThemeColors } from "../../lib/theme";

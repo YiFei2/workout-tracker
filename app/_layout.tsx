@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { getDb } from '../db';
+import { LocationsProvider } from '../contexts/LocationsContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { UnitProvider } from '../contexts/UnitContext';
 
@@ -56,7 +57,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider>
         <UnitProvider>
-          <RootLayoutNav />
+          <LocationsProvider>
+            <RootLayoutNav />
+          </LocationsProvider>
         </UnitProvider>
       </ThemeProvider>
     </SafeAreaProvider>

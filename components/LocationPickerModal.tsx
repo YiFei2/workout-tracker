@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { NamePromptModal } from "./NamePromptModal";
 import { PickerModal } from "./PickerModal";
-import { useLocations } from "../hooks/useLocations";
+import { useLocations } from "../contexts/LocationsContext";
 
 interface Props {
   visible: boolean;

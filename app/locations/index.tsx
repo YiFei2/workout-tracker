@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { NamePromptModal } from "../../components/NamePromptModal";
 import { useTheme } from "../../contexts/ThemeContext";
-import { useLocations } from "../../hooks/useLocations";
+import { useLocations } from "../../contexts/LocationsContext";
 import type { ThemeColors } from "../../lib/theme";
 import type { Location } from "../../types";
 
