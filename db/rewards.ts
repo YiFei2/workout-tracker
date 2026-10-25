@@ -1,6 +1,5 @@
 import { getDb } from "./client";
 import { generateId } from "./ids";
-import { getBalance } from "./points";
 import type { Reward } from "../types";
 
 interface RewardRow {
@@ -91,18 +90,23 @@ export async function redeemReward(id: string): Promise<void> {
   if (!reward) {
     return;
   }
-  const balance = await getBalance();
-  if (balance < reward.cost) {
-    throw new InsufficientPointsError();
-  }
-  await db.runAsync(
+  // Guard the overdraw check and the debit in a single atomic statement: the
+  // row is inserted only if the current balance still covers the cost, so two
+  // redemptions can't both pass a separate balance read and overdraw below
+  // zero. No rows changed => the balance was insufficient.
+  const result = await db.runAsync(
     `INSERT INTO points_transactions (id, amount, type, reward_id, reward_name, reward_cost, created_at)
-     VALUES (?, ?, 'redemption', ?, ?, ?, ?)`,
+     SELECT ?, ?, 'redemption', ?, ?, ?, ?
+     WHERE (SELECT COALESCE(SUM(amount), 0) FROM points_transactions) >= ?`,
     generateId(),
     -reward.cost,
     reward.id,
     reward.name,
     reward.cost,
     new Date().toISOString(),
+    reward.cost,
   );
+  if (result.changes === 0) {
+    throw new InsufficientPointsError();
+  }
 }

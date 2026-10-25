@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -41,11 +41,14 @@ export function RewardFormModal({
   const [name, setName] = useState("");
   const [cost, setCost] = useState("");
 
+  // Seed only on the closed→open transition — see TaskFormModal for why.
+  const wasVisible = useRef(false);
   useEffect(() => {
-    if (visible) {
+    if (visible && !wasVisible.current) {
       setName(initial?.name ?? "");
       setCost(initial ? String(initial.cost) : "");
     }
+    wasVisible.current = visible;
   }, [visible, initial]);
 
   const parsedCost = Math.floor(Number(cost));

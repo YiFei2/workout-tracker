@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -52,13 +52,18 @@ export function TaskFormModal({
   const [kind, setKind] = useState<TaskKind>("repeatable");
   const [linked, setLinked] = useState(false);
 
+  // Seed the form only on the closed→open transition. Resetting on every
+  // render while open (callers pass `initial` as a fresh object literal) would
+  // discard in-progress edits if a parent re-render landed mid-edit.
+  const wasVisible = useRef(false);
   useEffect(() => {
-    if (visible) {
+    if (visible && !wasVisible.current) {
       setName(initial?.name ?? "");
       setPoints(initial ? String(initial.points) : "");
       setKind(initial?.kind ?? "repeatable");
       setLinked(initial?.linkType === "workout");
     }
+    wasVisible.current = visible;
   }, [visible, initial]);
 
   const parsedPoints = Math.floor(Number(points));

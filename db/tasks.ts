@@ -15,6 +15,7 @@ interface TaskRow {
   updated_at: string;
   completion_count: number;
   last_completion_id: string | null;
+  last_completion_amount: number | null;
 }
 
 function toTask(row: TaskRow): Task {
@@ -32,6 +33,7 @@ function toTask(row: TaskRow): Task {
     completionCount,
     done: kind === "oneoff" && completionCount > 0,
     lastCompletionId: row.last_completion_id,
+    lastCompletionAmount: row.last_completion_amount,
   };
 }
 
@@ -41,7 +43,10 @@ const LIST_SELECT = `
        WHERE p.task_id = t.id AND p.type = 'task') AS completion_count,
     (SELECT p.id FROM points_transactions p
        WHERE p.task_id = t.id AND p.type = 'task'
-       ORDER BY p.created_at DESC, p.id DESC LIMIT 1) AS last_completion_id
+       ORDER BY p.created_at DESC, p.id DESC LIMIT 1) AS last_completion_id,
+    (SELECT p.amount FROM points_transactions p
+       WHERE p.task_id = t.id AND p.type = 'task'
+       ORDER BY p.created_at DESC, p.id DESC LIMIT 1) AS last_completion_amount
   FROM tasks t
 `;
 

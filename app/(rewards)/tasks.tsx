@@ -170,7 +170,9 @@ export default function TasksScreen() {
         title="Undo completion?"
         message={
           confirmUndo
-            ? `Undo "${confirmUndo.name}"? ${confirmUndo.points} points will be removed from your balance.`
+            ? `Undo "${confirmUndo.name}"? ${
+                confirmUndo.lastCompletionAmount ?? confirmUndo.points
+              } points will be removed from your balance.`
             : undefined
         }
         confirmLabel="Undo"

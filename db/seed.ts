@@ -131,8 +131,21 @@ export async function seedInitialData(db: SQLiteDatabase): Promise<void> {
 
 // Gated independently of the exercise library so an existing install (whose
 // exercises table is already populated) still picks these up on first upgrade
-// to v8.
+// to v8. Also gated on a one-time `rewards_seeded` flag (not just empty tables)
+// so a user who deletes all their starter tasks/rewards doesn't have them
+// resurrected on the next cold start — migrate() runs seeding every launch.
+// The per-table COUNT guards remain so a pre-flag v8 install that already seeded
+// via COUNT isn't duplicated before the flag gets set. Uses the passed `db`
+// directly rather than db/settings' getSetting (which awaits getDb() — the same
+// promise we're resolving inside migrate — and would deadlock).
 async function seedRewardsModule(db: SQLiteDatabase): Promise<void> {
+  const seededFlag = await db.getFirstAsync<{ value: string }>(
+    "SELECT value FROM settings WHERE key = 'rewards_seeded'",
+  );
+  if (seededFlag) {
+    return;
+  }
+
   const now = new Date().toISOString();
 
   const taskCount = await db.getFirstAsync<{ count: number }>(
@@ -171,6 +184,10 @@ async function seedRewardsModule(db: SQLiteDatabase): Promise<void> {
       );
     }
   }
+
+  await db.runAsync(
+    "INSERT INTO settings (key, value) VALUES ('rewards_seeded', '1') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+  );
 }
 
 async function seedExercisesAndTemplates(db: SQLiteDatabase): Promise<void> {

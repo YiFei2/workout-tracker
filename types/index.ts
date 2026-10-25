@@ -114,6 +114,12 @@ export interface Task {
   done: boolean;
   /** Most recent completion transaction id, if any — the target of "undo last". */
   lastCompletionId: string | null;
+  /**
+   * Snapshot amount of the most recent completion (may differ from `points`
+   * if the task was re-priced after completing). Used so the undo-clawback
+   * confirmation states the points actually being removed, not the live value.
+   */
+  lastCompletionAmount: number | null;
 }
 
 export interface Reward {
