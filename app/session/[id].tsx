@@ -16,7 +16,7 @@ import { ExerciseFormModal, type ExerciseFormValues } from "../../components/Exe
 import { ExercisePickerModal } from "../../components/ExercisePickerModal";
 import { GroupPickerModal } from "../../components/GroupPickerModal";
 import { LocationPickerModal } from "../../components/LocationPickerModal";
-import { RestTimerOverlay } from "../../components/RestTimerOverlay";
+import { RestTimerBar } from "../../components/RestTimerBar";
 import { SetRow, SetRowHeader } from "../../components/SetRow";
 import { useTheme } from "../../contexts/ThemeContext";
 import { setExerciseGroup } from "../../db";
@@ -322,7 +322,7 @@ export default function SessionScreen() {
         onSubmit={handleAddExercise}
       />
 
-      <RestTimerOverlay timer={timer} adjustStep={adjustStep} onAdjust={adjust} onDismiss={dismiss} />
+      <RestTimerBar timer={timer} adjustStep={adjustStep} onAdjust={adjust} onDismiss={dismiss} />
 
       <LocationPickerModal
         visible={pickingLocation}
