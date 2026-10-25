@@ -1,8 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Pressable } from 'react-native';
 
+import { useTheme } from '../../contexts/ThemeContext';
+
 export default function TabLayout() {
+  const router = useRouter();
+  const { colors } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
@@ -14,10 +19,18 @@ export default function TabLayout() {
         tabBarButton: ({ ref: _ref, ...props }) => (
           <Pressable {...props} android_ripple={{ ...props.android_ripple, radius: 28 }} />
         ),
+        // The tab group is pushed onto the root stack with its header hidden,
+        // so this header-left button is the on-screen way back to the module
+        // picker (hardware back / swipe also work, but iOS has no hardware back).
+        headerLeft: () => (
+          <Pressable onPress={() => router.navigate('/')} hitSlop={12} style={{ paddingHorizontal: 16 }}>
+            <Ionicons name="grid-outline" size={22} color={colors.text} />
+          </Pressable>
+        ),
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="templates"
         options={{
           title: 'Templates',
           tabBarIcon: ({ color, size, focused }) => (
