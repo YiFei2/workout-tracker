@@ -1,6 +1,6 @@
 import { useAudioPlayer } from "expo-audio";
+import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
-import * as Notifications from "expo-notifications";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 
@@ -14,14 +14,26 @@ const ADJUST_STEP = 15;
 const BEEP_WINDOW_SECONDS = 5;
 const TICK_MS = 250;
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// expo-notifications' native module isn't available in Expo Go (SDK 53+), so it's
+// imported lazily and only touched outside Expo Go — see backlog.md.
+const IS_EXPO_GO = Constants.appOwnership === "expo";
+
+let notificationsModule: typeof import("expo-notifications") | null = null;
+function getNotifications() {
+  if (IS_EXPO_GO) return null;
+  if (!notificationsModule) {
+    notificationsModule = require("expo-notifications");
+    notificationsModule!.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  }
+  return notificationsModule;
+}
 
 function secondsLeftFromEndAt(endAt: number): number {
   return Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
@@ -39,26 +51,30 @@ export function useRestTimer() {
   const cancelScheduledNotification = useCallback(() => {
     const id = notificationIdRef.current;
     notificationIdRef.current = null;
-    if (id) {
-      Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
+    const notifications = getNotifications();
+    if (id && notifications) {
+      notifications.cancelScheduledNotificationAsync(id).catch(() => {});
     }
   }, []);
 
   const scheduleCompletionNotification = useCallback(async (endAt: number, exerciseName: string) => {
-    const { status } = await Notifications.getPermissionsAsync();
+    const notifications = getNotifications();
+    if (!notifications) return;
+
+    const { status } = await notifications.getPermissionsAsync();
     if (status !== "granted") {
-      const requested = await Notifications.requestPermissionsAsync();
+      const requested = await notifications.requestPermissionsAsync();
       if (requested.status !== "granted") return;
     }
     const secondsFromNow = Math.max(1, Math.round((endAt - Date.now()) / 1000));
-    const id = await Notifications.scheduleNotificationAsync({
+    const id = await notifications.scheduleNotificationAsync({
       content: {
         title: "Rest complete",
         body: `${exerciseName} — time for your next set`,
         sound: "ding.wav",
       },
       trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        type: notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         seconds: secondsFromNow,
       },
     });
