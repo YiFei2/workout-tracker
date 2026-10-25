@@ -1,8 +1,62 @@
-# Workout Tracker — Requirements
+# App Requirements (multi-module)
+
+> **Note:** this project started as a standalone "Workout Tracker" and is expanding into a multi-module life-utility app. Workout tracking is the first module; the Rewards module (Tasks + Store + points ledger) is the second. The overall app name is TBD. The repo/folder is still named `workout-tracker` for now.
+
+## App Vision
+
+A mobile app (React Native / Expo) that acts as a hub for managing personal life habits. It's organized as a set of **modules** sharing one app shell, one local database, and one cross-cutting **points economy**.
+
+- **App shell**: on launch, the user lands on a **module selection screen** (a simple grid/list of modules). For now it lists two: *Workout Tracker* and *Rewards*. New modules are added here over time (e.g. meditation journal).
+- **Unifying principle — earn & spend**: habit-building modules *earn* points (via Tasks); the Rewards store *spends* them. A module is a good fit for this app if it feeds or spends this economy. This is the filter that keeps the app from becoming a junk drawer.
+- **Personal accountability**: the economy is for the user's own motivation, not a competitive/social system. There is deliberately **no anti-abuse / anti-cheat** — a user can manually grant themselves points at will. Honesty is the user's own responsibility.
+
+### Module architecture (implementation note, not over-engineered)
+
+With only two modules, we deliberately **avoid** building a generic plugin framework. Concretely:
+- A module-selection landing screen is the app entry point.
+- Each module lives under its own Expo Router route group (e.g. `app/(workout)/`, `app/(rewards)/`).
+- Shared concerns (points balance/ledger, unit & theme preferences) live in the shared `db/` + settings layer; module-local data (templates, sessions, rewards catalog) is namespaced to that module.
+- We let the *third* module teach us what genuinely needs a shared abstraction rather than guessing now.
+
+---
+
+## Shared: Points Economy
+
+The cross-module currency. A **single app-wide balance** earned by any module and spent in the Rewards Store.
+
+### Core Entity — PointsTransaction (ledger)
+
+The balance is **not** stored as a single mutable number; it is derived. Every credit and debit is a row, so the full earning + redemption history is auditable from one table.
+
+- `id`, `createdAt`
+- `amount` — signed integer: **positive = credit** (points earned), **negative = debit** (points spent / clawed back)
+- `type` — `'manual'` | `'task'` | `'redemption'`
+- `note` (nullable) — free-text description for manual credits/debits (e.g. "bonus for a good week")
+- `taskId` (nullable) — set on `type: 'task'`, references the completed `Task` (may become dangling if the task is later deleted — history survives via the snapshot below)
+- `taskName` (nullable) — **snapshot** of the task's name at completion time
+- `rewardId` (nullable) — set on `type: 'redemption'`, references the redeemed `Reward` (may become dangling if the reward is deleted — history survives via the snapshot below)
+- `rewardName`, `rewardCost` (nullable) — **snapshot** of the reward's name and cost at redemption time
+
+Snapshots follow the same convention as `TemplateExercise.exerciseName`: the `Task`/`Reward` tables stay the live, editable config; the ledger row is the immutable record of what a completion/redemption was actually worth, so renaming, re-pricing, or deleting a task/reward never rewrites past ledger entries.
+
+**Balance** = `SUM(amount)` across all transactions.
+- A **redemption** is rejected if it would overdraw the balance below zero (you can't spend points you don't have), and is blocked entirely while the balance is already negative.
+- A **clawback** (undoing a task completion) or a **manual debit** *may* drive the balance negative — e.g. you earned points, spent them, then undid the earning. This keeps undo from mysteriously refusing to work while still guarding actual spending.
+
+### Earning rules
+
+Points are earned **only by completing Tasks** (see Module: Rewards → Tasks). There is no direct "finish a workout → get points" rule; a workout instead *auto-completes* a linked task, and that task completion is what credits the points.
+
+- **Task completion**: completing a `Task` writes a `type: 'task'` credit equal to that task's configured point value, snapshotting `taskName` + `amount`.
+- **Manual credit/debit**: the user can add points by hand (amount + optional note) — a `type: 'manual'` row. A negative manual amount is allowed as a correction/debit.
+
+---
+
+# Module: Workout Tracker
 
 ## Product Vision
 
-A mobile app (React Native / Expo) for logging gym workouts. The core loop: pick or create a workout template, run through it in the gym recording sets, and review history over time.
+A mobile app (React Native / Expo) for logging gym workouts. The core loop: pick or create a workout template, run through it in the gym recording sets, and review history over time. On completing a session, any workout-linked Tasks are auto-completed, crediting their points into the shared Points Economy (see Module: Rewards).
 
 ---
 
@@ -107,8 +161,8 @@ An entry in the exercise library — the source of truth for "what exercise is t
 - Duration is seeded from the template's per-exercise default but is just a per-session value — editing it during a session does not change the template
 
 **Finishing**
-- Complete workout: saves session with `completedAt` timestamp
-- Discard: cancel without saving
+- Complete workout: saves session with `completedAt` timestamp, then auto-completes every currently-completable `'workout'`-linked `Task` (see Module: Rewards → Workout link) and surfaces which tasks fired and the points earned. Deleting this session later does **not** claw those completions back.
+- Discard: cancel without saving (earns nothing)
 
 ---
 
@@ -166,6 +220,92 @@ A library of `Exercise` entries (see Core Entities above) backs every exercise r
 - Adding a new exercise reuses an existing entry if the name matches case-insensitively (trimmed) rather than creating a near-duplicate
 - A custom exercise can be renamed later (via re-editing); deleting an exercise from the library is not supported in v1 (see Out of Scope)
 - `TemplateExercise`/`LoggedExercise` keep a denormalized `exerciseName` snapshot alongside `exerciseId`, copied at pick/swap time, so a later rename doesn't rewrite historical display — `ExerciseGroupMember`'s `exerciseName` is the one exception, resolved live, since group composition is current config, not a log
+
+---
+
+# Module: Rewards
+
+## Product Vision
+
+A personal earn-and-spend economy. The user defines **Tasks** (things they want to do) that credit points on completion, and **Rewards** (treats they want to give themselves) that cost points to redeem. Purely personal accountability — no app-provided catalog, no anti-cheat; honesty is the user's own responsibility. One module, three surfaces: **Tasks** (earn), **Store** (spend), **Points history** (the shared ledger). The current balance is shown prominently across all three.
+
+---
+
+## Core Entities
+
+### Task
+
+A user-defined thing-to-do that credits points on completion.
+- `id`, `name`, `points` (positive integer awarded per completion), `createdAt`, `updatedAt`
+- `kind` — `'oneoff'` | `'repeatable'`
+- `linkType` (nullable) — the module whose own completion auto-completes this task; the only v1 value is `'workout'`. Null = a plain, manual-only task. The field shape doesn't change as future modules add values (e.g. `'meditation'`).
+- Order is insertion order in v1 (drag-to-reorder is backlogged, same as templates)
+- A `'oneoff'` task is "done" exactly when it has a completion ledger row; a `'repeatable'` task can be completed any number of times (one credit per completion)
+- Deleting a task is permanent but harmless to history — past completions keep their `taskName`/`amount` snapshot on the `PointsTransaction` ledger
+
+### Reward
+
+A user-defined reward in the store.
+- `id`, `name`, `cost` (positive integer points), `createdAt`, `updatedAt`
+- Deleting a reward is permanent but harmless to history — past redemptions keep their own name/cost snapshot on the `PointsTransaction`, so the ledger is unaffected. (No archive/soft-hide in v1 — re-adding a reward is trivial, and the snapshot already protects history.)
+
+*(Neither completions nor redemptions are separate entities — each is a `PointsTransaction` row; see Shared: Points Economy.)*
+
+---
+
+## Feature Areas
+
+### 1. Tasks (the earn side)
+
+**Manage (CRUD)**
+- **Create** a task: name + points + kind (one-off / repeatable) + optional workout link
+- **Read**: list tasks — a repeatable task is always listed with a completion count; a one-off is listed and shown done-but-kept once completed
+- **Update**: rename, change points, change kind, set/clear the link
+- **Delete**: remove a task (past completions survive via ledger snapshot)
+
+**Completing**
+- Tap to complete → writes a `type: 'task'` credit (snapshotting `taskName` + `amount`); the balance rises immediately
+- **Repeatable**: completable repeatedly, one credit each time; shows how many times completed
+- **One-off**: flips to a done state (checked/greyed, kept in the list); re-completing is a no-op until undone
+- Manual completion always works — including for linked tasks — and never fabricates a workout session
+
+**Undo a completion** (reverses the credit; may drive the balance negative — allowed)
+- **Inline on the Tasks page**: tap a done one-off to un-complete it; a repeatable shows an "Undo last" control that removes its most recent completion
+- **From Points history**: delete a `type: 'task'` row (reverses the credit; flips a one-off back to active)
+- Both paths show a **confirmation detailing the point clawback** (e.g. *"Undo 'Go to gym'? 20 points will be removed from your balance."*), rendered as a **themed modal**, not the native `Alert`
+
+### 2. Rewards Store (the spend side)
+
+**Manage rewards (CRUD)**: create (name + cost), rename, change cost, delete (past redemptions survive via snapshot)
+
+**Redeem**
+- Lists rewards as cards (name + cost) with a **Redeem** button, plus the current balance
+- Redeem is **disabled / shows "not enough points"** when `cost > balance`; a redemption may never overdraw below zero, and is blocked entirely while the balance is negative
+- A lightweight confirm step ("Redeem <name> for <cost> points?") avoids accidental taps
+- Redeeming writes a `type: 'redemption'` debit (amount = `-cost`) snapshotting the reward's name and cost; the balance updates immediately
+
+### 3. Points History (the ledger)
+
+- One **unified** chronological list of all `PointsTransaction`s, most recent first: task credits, manual adjustments, and redemptions — each showing amount (+/-), type, date, and the task/reward name or note
+- Current **balance** shown prominently (derived = `SUM(amount)`)
+- **Manual credit/debit** entry: add or correct points by hand with an optional note
+- Deleting a row reverses its effect on the balance; deleting a `type: 'task'` row also flips a one-off task back to active (this is the Points-history path of "undo a completion") — same themed clawback confirmation
+
+### 4. Workout link (auto-completion)
+
+- A task with `linkType: 'workout'` is auto-completed when a `WorkoutSession` is completed (see Module: Workout Tracker → Finishing)
+- Completing a session auto-completes **every currently-completable** `'workout'`-linked task: repeatable → one credit per session; already-done one-off → skipped; no linked task → nothing earned
+- The workout "complete" flow **surfaces** which tasks fired and the points earned
+- Linked tasks also show a **"Start" affordance** that deep-links into the Workout Tracker start-session flow (reverse navigation)
+- The link is **one-directional**: a real session completes the task, but completing the task by hand never writes anything into the Workout Tracker
+- Deleting a crediting session later does **not** claw back the completion (no reverse on session delete)
+
+### 5. Seeding
+
+On first install, seed a small starter set so the earn→spend loop is legible (all freely editable/deletable, like the seeded exercises/templates):
+- A **"Go to gym"** repeatable task, `linkType: 'workout'`, e.g. 20 points — demonstrates the workout↔task link out of the box
+- One generic sample task (e.g. "Read for 30 minutes")
+- One sample reward (e.g. "1 episode of a show")
 
 ---
 

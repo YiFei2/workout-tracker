@@ -2,6 +2,7 @@
 
 ## Bugs
 
+- **App crashes on launch in Expo Go (SDK 57) via `expo-notifications`**: `useRestTimer.ts` does `import * as Notifications from "expo-notifications"`, and the installed Expo Go (SDK 57) throws `Cannot find native module 'ExpoTopicSubscriptionModule'` when that module initializes — Expo Router eagerly requires every route file at startup, so the one broken import red-boxes the whole app (the landing/Rewards screens still render after dismissing it, but the workout **session** screen can't open). Pre-existing (not introduced by the Rewards module) and likely only an Expo-Go limitation — the app is meant to run via a development build for notifications. Confirm whether a dev build is the intended run target, or guard/lazy-load the notifications import so Expo Go still works. Discovered 2026-10-26 while verifying the Rewards module.
 - **Status bar overlap on template exercises screen**: on Android edge-to-edge, the header on `app/template/[id].tsx` overlaps the phone's status bar (back button/title render under the clock/battery icons). A `SafeAreaProvider` was added at the app root (`app/_layout.tsx`) to fix this for `app/session/[id].tsx`, but the issue persists on the template screen — needs further investigation (possibly a stale build/reload, or a different cause specific to that screen).
 - **Sporadic background SQLite error toast**: `"Uncaught (in promise, id: 0) Error: Call to function 'NativeStatement.finalizeAsync' has been rejected... doesn't contain valid id"` surfaces occasionally during normal DB-heavy interactions (e.g. adding an exercise). Seen twice during exercise-library testing, in unrelated contexts, non-deterministically (didn't reproduce on a retry of the same steps). Hasn't been observed to actually break anything (the underlying action always completed correctly), but the root cause — likely a late-resolving/unawaited `expo-sqlite` statement finalization racing a component unmount or background refresh — hasn't been tracked down. Worth investigating if it ever starts affecting outcomes.
 
@@ -19,6 +20,19 @@
 - **"+ Link substitution group" is offered inside an active session** on non-grouped exercises. Reqs only describe Swap in-session (linking is a template-edit action). Confirm this is intentional.
 
 ## Future Enhancements
+
+### Multi-module app / Rewards Store (planned — see `requirements.md`)
+
+- **App shell + module selection screen**: the planned app entry point is a module-selection landing page; current workout screens move under an `app/(workout)/` route group and the rewards module under `app/(rewards)/`. Not yet built.
+- **Scheduled task cadences**: v1 tasks are only one-off or freely-repeatable. A future version adds scheduling — e.g. "daily", "3× per week", "every Monday" — with period resets (the task becomes completable again each period), carry-over/missed handling, and streak tracking. Deferred to keep v1's earn→spend loop simple.
+- **Richer workout→points scaling**: v1 grants a flat per-task point value when a "Go to gym" task is completed. A future refinement could scale the credit by the session's sets/exercises/volume rather than a flat rate.
+- **Finer task link conditions**: v1 `linkType: 'workout'` is satisfied by *any* completed session. A future version could scope a link to a specific condition (e.g. only a leg-day template, or a session of ≥30 min).
+- **Transient undo snackbar**: in addition to the inline tap-again / history-delete undo paths, a few-second "Completed ✓ — Undo" snackbar right after completing a task would be the most discoverable path for an accidental tap.
+- **Points credit → session deep-link**: a `task`-type ledger credit that was fired by a workout could deep-link to the session that triggered it.
+- **Reward goals / wishlist affordances**: show how close the balance is to affording each reward, "you can afford N rewards", etc. — motivational polish on top of the basic store.
+- **Future modules**: meditation journal (next candidate after Rewards Store), and other habit trackers that feed/spend the points economy.
+
+### Workout Tracker
 
 - **Drag-to-reorder**: reorder exercises within a template or active session
 - **Progress charts**: visualise weight/volume progression per exercise over time
