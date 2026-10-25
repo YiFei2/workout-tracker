@@ -21,6 +21,7 @@ import { SetRow, SetRowHeader } from "../../components/SetRow";
 import { useTheme } from "../../contexts/ThemeContext";
 import { setExerciseGroup } from "../../db";
 import { useLocations } from "../../contexts/LocationsContext";
+import { useRewards } from "../../contexts/RewardsContext";
 import { useExerciseGroups } from "../../hooks/useExerciseGroups";
 import { useRestTimer } from "../../hooks/useRestTimer";
 import { useSession } from "../../hooks/useSession";
@@ -52,6 +53,7 @@ export default function SessionScreen() {
   } = useSession(id);
   const { timer, start, adjust, dismiss, adjustStep } = useRestTimer();
   const { locations } = useLocations();
+  const { refresh: refreshRewards } = useRewards();
   const { groups, refresh: refreshGroups } = useExerciseGroups();
   const groupsById = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups]);
 
@@ -140,8 +142,23 @@ export default function SessionScreen() {
       {
         text: "Complete",
         onPress: async () => {
-          await complete();
-          router.dismissTo("/history");
+          const fired = await complete();
+          // A workout earns points only by auto-completing linked tasks, so
+          // the balance may have changed outside the Rewards module — refresh
+          // its shared state and tell the user what they earned.
+          await refreshRewards();
+          const goHistory = () => router.dismissTo("/history");
+          if (fired.length > 0) {
+            const total = fired.reduce((sum, t) => sum + t.points, 0);
+            const lines = fired.map((t) => `✓ ${t.taskName}  +${t.points}`).join("\n");
+            Alert.alert(
+              `+${total} points earned`,
+              `${lines}\n\nAdded to your points balance.`,
+              [{ text: "Nice", onPress: goHistory }],
+            );
+          } else {
+            goHistory();
+          }
         },
       },
     ]);

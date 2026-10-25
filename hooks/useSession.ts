@@ -129,8 +129,9 @@ export function useSession(id: string) {
   );
 
   const complete = useCallback(async () => {
-    await completeSession(id);
+    const fired = await completeSession(id);
     await refresh();
+    return fired;
   }, [id, refresh]);
 
   const discard = useCallback(async () => {

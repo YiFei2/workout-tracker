@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from "expo-sqlite";
 
 import { getDb } from "./client";
 import { generateId } from "./ids";
+import { completeWorkoutLinkedTasks, type FiredTaskCredit } from "./tasks";
 import { addTemplateExercise, getTemplate } from "./templates";
 import type { LoggedExercise, WorkoutSession, WorkoutSet } from "../types";
 
@@ -427,13 +428,29 @@ export async function setSessionLocation(sessionId: string, locationId: string):
   }
 }
 
-export async function completeSession(id: string): Promise<void> {
+/**
+ * Mark a session complete, then auto-complete every currently-completable
+ * 'workout'-linked Task (the only way workouts feed the points economy — see
+ * Module: Rewards). Returns which tasks fired and the points each credited so
+ * the caller can surface them. Guards against double-firing on an
+ * already-completed session (e.g. a repeated tap), since completion is the
+ * trigger and should happen exactly once per session.
+ */
+export async function completeSession(id: string): Promise<FiredTaskCredit[]> {
   const db = await getDb();
+  const existing = await db.getFirstAsync<{ completed_at: string | null }>(
+    "SELECT completed_at FROM sessions WHERE id = ?",
+    id,
+  );
+  if (!existing || existing.completed_at !== null) {
+    return [];
+  }
   await db.runAsync(
     "UPDATE sessions SET completed_at = ? WHERE id = ?",
     new Date().toISOString(),
     id,
   );
+  return completeWorkoutLinkedTasks();
 }
 
 // Used both to discard an in-progress session and to delete one from history.

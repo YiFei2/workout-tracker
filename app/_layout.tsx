@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { getDb } from '../db';
 import { LocationsProvider } from '../contexts/LocationsContext';
+import { RewardsProvider } from '../contexts/RewardsContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { UnitProvider } from '../contexts/UnitContext';
 
@@ -37,7 +38,9 @@ function RootLayoutNav() {
     <NavigationThemeProvider value={navigationTheme}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <Stack>
+        <Stack.Screen name="index" options={{ title: 'Life Tracker' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(rewards)" options={{ headerShown: false }} />
       </Stack>
     </NavigationThemeProvider>
   );
@@ -58,7 +61,9 @@ export default function RootLayout() {
       <ThemeProvider>
         <UnitProvider>
           <LocationsProvider>
-            <RootLayoutNav />
+            <RewardsProvider>
+              <RootLayoutNav />
+            </RewardsProvider>
           </LocationsProvider>
         </UnitProvider>
       </ThemeProvider>
