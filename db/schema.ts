@@ -2,7 +2,7 @@
 // (see client.ts). Bump SCHEMA_VERSION and add a migration when this shape
 // changes.
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export const CREATE_TABLE_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS exercise_groups (
@@ -72,12 +72,58 @@ export const CREATE_TABLE_STATEMENTS = [
     value TEXT NOT NULL
   );`,
 
+  // --- Rewards module (v8): the shared points economy ---
+  // A Task is a user-defined thing-to-do that credits points on completion.
+  // kind is 'oneoff' | 'repeatable'; link_type is 'workout' | NULL (the
+  // module whose own completion auto-completes this task).
+  `CREATE TABLE IF NOT EXISTS tasks (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    points INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    link_type TEXT,
+    order_index INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );`,
+
+  // A Reward is a user-defined treat that costs points to redeem.
+  `CREATE TABLE IF NOT EXISTS rewards (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    cost INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );`,
+
+  // The ledger. Balance is never stored as a single number — it's SUM(amount)
+  // over this table. type is 'manual' | 'task' | 'redemption'. A task
+  // completion / redemption snapshots the task/reward name (and reward cost)
+  // so renaming, re-pricing, or deleting the task/reward never rewrites past
+  // ledger entries (ON DELETE SET NULL keeps the row, the snapshot preserves
+  // its display). A one-off task is "done" exactly when a 'task' row
+  // references it; undo = delete that row.
+  `CREATE TABLE IF NOT EXISTS points_transactions (
+    id TEXT PRIMARY KEY NOT NULL,
+    amount INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    note TEXT,
+    task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+    task_name TEXT,
+    reward_id TEXT REFERENCES rewards(id) ON DELETE SET NULL,
+    reward_name TEXT,
+    reward_cost INTEGER,
+    created_at TEXT NOT NULL
+  );`,
+
   `CREATE INDEX IF NOT EXISTS idx_template_exercises_template_id ON template_exercises(template_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_template_id ON sessions(template_id);`,
   `CREATE INDEX IF NOT EXISTS idx_logged_exercises_session_id ON logged_exercises(session_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sets_exercise_id ON sets(exercise_id);`,
   `CREATE INDEX IF NOT EXISTS idx_template_exercises_exercise_id ON template_exercises(exercise_id);`,
   `CREATE INDEX IF NOT EXISTS idx_logged_exercises_exercise_id ON logged_exercises(exercise_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_points_transactions_task_id ON points_transactions(task_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_points_transactions_created_at ON points_transactions(created_at);`,
 ];
 
 // Index on a v4 column: must only run once location_id is guaranteed to
@@ -169,3 +215,11 @@ export const V7_MIGRATION_STATEMENTS = [
    ) WHERE id IN (SELECT exercise_id FROM exercise_group_members);`,
   `DROP TABLE IF EXISTS exercise_group_members;`,
 ];
+
+// v8: added the Rewards module's points economy — tasks, rewards, and the
+// points_transactions ledger (see Module: Rewards in requirements.md). Purely
+// additive (three brand-new tables), so no migration statements are needed:
+// the CREATE TABLE IF NOT EXISTS entries above handle both fresh installs and
+// upgrades. Seeding of the starter task/reward is gated per-table in
+// db/seed.ts so existing installs (whose exercises table is already seeded)
+// still get the new rows on first upgrade to v8.

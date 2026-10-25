@@ -8,3 +8,6 @@ export * from "./settings";
 export * from "./locations";
 export * from "./exerciseGroups";
 export * from "./exercises";
+export * from "./tasks";
+export * from "./rewards";
+export * from "./points";

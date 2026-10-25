@@ -105,7 +105,75 @@ const SEED_TEMPLATES: SeedTemplate[] = [
   },
 ];
 
+// Rewards-module starter content (v8). Seeded so the Tasks and Store surfaces
+// aren't blank on first open and the workout↔task link is demonstrated out of
+// the box. Freely editable/deletable, like the seeded exercises/templates.
+interface SeedTask {
+  name: string;
+  points: number;
+  kind: "oneoff" | "repeatable";
+  linkType: "workout" | null;
+}
+
+const SEED_TASKS: SeedTask[] = [
+  { name: "Go to gym", points: 20, kind: "repeatable", linkType: "workout" },
+  { name: "Read for 30 minutes", points: 10, kind: "repeatable", linkType: null },
+];
+
+const SEED_REWARDS: { name: string; cost: number }[] = [
+  { name: "1 episode of a show", cost: 50 },
+];
+
 export async function seedInitialData(db: SQLiteDatabase): Promise<void> {
+  await seedExercisesAndTemplates(db);
+  await seedRewardsModule(db);
+}
+
+// Gated independently of the exercise library so an existing install (whose
+// exercises table is already populated) still picks these up on first upgrade
+// to v8.
+async function seedRewardsModule(db: SQLiteDatabase): Promise<void> {
+  const now = new Date().toISOString();
+
+  const taskCount = await db.getFirstAsync<{ count: number }>(
+    "SELECT COUNT(*) AS count FROM tasks",
+  );
+  if ((taskCount?.count ?? 0) === 0) {
+    for (let i = 0; i < SEED_TASKS.length; i++) {
+      const { name, points, kind, linkType } = SEED_TASKS[i];
+      await db.runAsync(
+        `INSERT INTO tasks (id, name, points, kind, link_type, order_index, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        generateId(),
+        name,
+        points,
+        kind,
+        linkType,
+        i,
+        now,
+        now,
+      );
+    }
+  }
+
+  const rewardCount = await db.getFirstAsync<{ count: number }>(
+    "SELECT COUNT(*) AS count FROM rewards",
+  );
+  if ((rewardCount?.count ?? 0) === 0) {
+    for (const { name, cost } of SEED_REWARDS) {
+      await db.runAsync(
+        "INSERT INTO rewards (id, name, cost, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+        generateId(),
+        name,
+        cost,
+        now,
+        now,
+      );
+    }
+  }
+}
+
+async function seedExercisesAndTemplates(db: SQLiteDatabase): Promise<void> {
   const countRow = await db.getFirstAsync<{ count: number }>(
     "SELECT COUNT(*) AS count FROM exercises",
   );
